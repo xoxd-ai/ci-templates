@@ -5,6 +5,21 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.14.1] - 2026-09-21
+
+### Fixed
+
+- Organisation repoint (operator ruling CT1, 2026-09-21, TIN-4435). The
+  organisation renamed from tinyland-inc to xoxd-ai and GitHub does not follow
+  the rename for `uses:` action resolution, so every consumer pinned to a v2
+  tag failed at Set up job. Every internal `uses:` now names
+  `xoxd-ai/ci-templates/...@v2.14.1` (the legacy floating `@v2` self-refs and
+  the `@v2.12.1` restricted closure are raised to this exact release), the
+  run-time raw fetch, the workflow input defaults, the repo manifest owner
+  fields and the validators' own patterns and release constants name the new
+  organisation and this release. The restricted contract's legacy workflow
+  byte pins are re-pinned to the repointed bytes. No behaviour change.
+
 ## [2.14.0] — 2026-08-18
 
 ### Fixed

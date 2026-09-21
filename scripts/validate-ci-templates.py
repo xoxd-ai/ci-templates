@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repository-local validation helpers for tinyland-inc/ci-templates."""
+"""Repository-local validation helpers for xoxd-ai/ci-templates."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import sys
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v2.14.0"
+RUST_BAZEL_RELEASE = "v2.14.1"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -96,9 +96,9 @@ def validate_manifest() -> int:
 def check_internal_refs() -> int:
     ok = True
     action_pattern = re.compile(
-        r"tinyland-inc/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
+        r"xoxd-ai/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
     )
-    main_pattern = re.compile(r"tinyland-inc/ci-templates/.*@main")
+    main_pattern = re.compile(r"xoxd-ai/ci-templates/.*@main")
 
     for path in sorted((ROOT / ".github").glob("**/*.yml")):
         text = path.read_text(encoding="utf-8")
@@ -505,7 +505,7 @@ def check_rust_bazel_application_contract() -> int:
                     f"{closure_path.relative_to(ROOT)}: consumer-relative action is not release-vendored: {reference}"
                 )
                 continue
-            prefix = "tinyland-inc/ci-templates/.github/actions/"
+            prefix = "xoxd-ai/ci-templates/.github/actions/"
             if reference.startswith(prefix):
                 action_ref = reference.removeprefix(prefix)
                 if "@" not in action_ref:
@@ -579,8 +579,8 @@ def check_rust_bazel_application_contract() -> int:
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v2.14.0",
-        "rust-bazel-binary-custody@v2.14.0",
+        "rust-bazel-preflight@v2.14.1",
+        "rust-bazel-binary-custody@v2.14.1",
         "steps.bazelisk-custody.outputs.path",
         "needs: trust-gate",
         'default: "[]"',
@@ -589,8 +589,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v2.14.0",
-        "cache-attachment-validate@v2.14.0",
+        "rust-bazel-contract@v2.14.1",
+        "cache-attachment-validate@v2.14.1",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",
@@ -726,7 +726,7 @@ def check_rust_bazel_application_contract() -> int:
         "does not claim a four-platform",
         "tinyland-infra",
         "same-repository",
-        "@v2.14.0",
+        "@v2.14.1",
         "github.ref_protected == true",
         "cache-first",
         "release publication remains a",
@@ -774,7 +774,7 @@ def check_rust_bazel_application_contract() -> int:
         )
         ok = False
     if re.search(
-        r"tinyland-inc/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
+        r"xoxd-ai/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
     ):
         print(
             f"{workflow_path.relative_to(ROOT)}: floating internal action reference",

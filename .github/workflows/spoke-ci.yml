@@ -112,7 +112,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
-      - uses: tinyland-inc/ci-templates/.github/actions/secrets-scan@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/secrets-scan@v2.14.1
 
   lanes-load:
     runs-on: ubuntu-latest
@@ -124,9 +124,9 @@ jobs:
       spoke_name: ${{ steps.load.outputs.spoke_name }}
     steps:
       - uses: actions/checkout@v6
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
       - id: load
-        uses: tinyland-inc/ci-templates/.github/actions/lanes-load@v2
+        uses: xoxd-ai/ci-templates/.github/actions/lanes-load@v2.14.1
         with:
           path: ${{ inputs.lanes_path }}
 
@@ -135,7 +135,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
       - id: manifest
         shell: bash
         run: |
@@ -146,7 +146,7 @@ jobs:
             echo "::notice::tinyland.repo.json not present; skipping manifest validation for this pre-manifest consumer."
           fi
       - if: steps.manifest.outputs.exists == 'true'
-        uses: tinyland-inc/ci-templates/.github/actions/repo-manifest-validate@v2
+        uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v2.14.1
         with:
           required_roles: static-spoke,static-spoke-scaffold
 
@@ -165,14 +165,14 @@ jobs:
       # non-opted spoke consumers. setup-nix installs Nix only; it does NOT
       # export BAZEL_REMOTE_CACHE.
       - if: ${{ !inputs.cache_backed }}
-        uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+        uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
 
       # Cache-backed path (cache_backed=true): nix-setup probes cluster DNS and
       # exports BAZEL_REMOTE_CACHE / ATTIC_SERVER so the contract + cache-backed
       # build below can attach the shared Bazel cache. This is the spoke wiring
       # fix: spoke-ci's default setup-nix does not export the cache endpoint.
       - if: ${{ inputs.cache_backed }}
-        uses: tinyland-inc/ci-templates/.github/actions/nix-setup@v2
+        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v2.14.1
 
       - name: Setup workspace
         run: nix develop --command just setup
@@ -184,7 +184,7 @@ jobs:
       # and FAIL CLOSED on an invalid manifest (TIN-2109). Network-free.
       - name: Validate repo manifest (cache-backed lane)
         if: ${{ inputs.cache_backed }}
-        uses: tinyland-inc/ci-templates/.github/actions/repo-manifest-validate@v2
+        uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v2.14.1
         with:
           required_roles: static-spoke,static-spoke-scaffold
 
@@ -209,7 +209,7 @@ jobs:
             script="scripts/cache-attachment-contract.sh"
           else
             curl -fsSL \
-              "https://raw.githubusercontent.com/tinyland-inc/ci-templates/${CI_TEMPLATES_REF}/scripts/cache-attachment-contract.sh" \
+              "https://raw.githubusercontent.com/xoxd-ai/ci-templates/${CI_TEMPLATES_REF}/scripts/cache-attachment-contract.sh" \
               -o "$script"
             chmod +x "$script"
           fi
@@ -231,7 +231,7 @@ jobs:
           bash "$script" --strict
 
       - name: Build (flywheel)
-        uses: tinyland-inc/ci-templates/.github/actions/flywheel-bazel@v2
+        uses: xoxd-ai/ci-templates/.github/actions/flywheel-bazel@v2.14.1
         with:
           targets: "//:node_modules"
           command: build
@@ -268,7 +268,7 @@ jobs:
 
       - name: Post lane build status
         if: always()
-        uses: tinyland-inc/ci-templates/.github/actions/lane-status-check@v2
+        uses: xoxd-ai/ci-templates/.github/actions/lane-status-check@v2.14.1
         with:
           commit_sha: ${{ github.event.pull_request.head.sha || github.sha }}
           lane_name: ${{ matrix.lane.name }}
@@ -285,7 +285,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
 
       - run: nix develop --command just setup
       - run: nix develop --command just check
@@ -299,10 +299,10 @@ jobs:
 
       # Default path (cache_backed=false): byte-identical for non-opted spokes.
       - if: ${{ !inputs.cache_backed }}
-        uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+        uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
       # Cache-backed path: nix-setup exports BAZEL_REMOTE_CACHE from cluster DNS.
       - if: ${{ inputs.cache_backed }}
-        uses: tinyland-inc/ci-templates/.github/actions/nix-setup@v2
+        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v2.14.1
 
       - run: nix develop --command bazelisk mod graph
 
@@ -326,7 +326,7 @@ jobs:
             script="scripts/cache-attachment-contract.sh"
           else
             curl -fsSL \
-              "https://raw.githubusercontent.com/tinyland-inc/ci-templates/${CI_TEMPLATES_REF}/scripts/cache-attachment-contract.sh" \
+              "https://raw.githubusercontent.com/xoxd-ai/ci-templates/${CI_TEMPLATES_REF}/scripts/cache-attachment-contract.sh" \
               -o "$script"
             chmod +x "$script"
           fi
@@ -370,6 +370,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v2.14.1
       - run: nix develop --command just setup
       - run: nix develop --command just test-e2e

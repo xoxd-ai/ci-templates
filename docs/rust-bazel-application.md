@@ -73,7 +73,7 @@ on:
 
 jobs:
   rust:
-    uses: tinyland-inc/ci-templates/.github/workflows/rust-bazel-application.yml@v2.14.0
+    uses: xoxd-ai/ci-templates/.github/workflows/rust-bazel-application.yml@v2.14.1
     with:
       enabled: true
       runner_group: tinyland-infra
@@ -90,7 +90,7 @@ jobs:
       package_targets_json: '["//packaging:release_archives"]'
 ```
 
-`v2.14.0` is the first planned immutable release containing this workflow and
+`v2.14.1` (the xoxd-ai repoint of `v2.14.0`) is the first immutable release containing this workflow and
 its internal actions. Do not replace that pin with `@v2` or `@main`.
 
 Those two entries are an interface example, not a claim that the labels are
