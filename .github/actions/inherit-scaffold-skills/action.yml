@@ -8,7 +8,7 @@ inputs:
   scaffold_repository:
     description: Repository that owns the scaffold-core plugin.
     required: false
-    default: tinyland-inc/site.scaffold
+    default: xoxd-ai/site.scaffold
   scaffold_ref:
     description: |
       Pinned scaffold ref to inherit from. Must be a semver tag, refs/tags/*
