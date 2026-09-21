@@ -3,7 +3,7 @@
   "schema_version": 1,
   "repo": {
     "name": "ci-templates",
-    "github": "tinyland-inc/ci-templates",
+    "github": "xoxd-ai/ci-templates",
     "description": "Reusable GitHub Actions composites and workflows for Tinyland CI, GitOps lanes, and Flywheel Bazel wiring.",
     "linear": {
       "initiative": "TIN-1433",
@@ -39,13 +39,13 @@
   },
   "authorities": {
     "content_authority": "tinyland.dev",
-    "ci_templates": "tinyland-inc/ci-templates",
-    "cache_rbe_authority": "tinyland-inc/GloriousFlywheel",
-    "tofu_module_authority": "tinyland-inc/GloriousFlywheel",
-    "package_registry": "tinyland-inc/bazel-registry"
+    "ci_templates": "xoxd-ai/ci-templates",
+    "cache_rbe_authority": "xoxd-ai/GloriousFlywheel",
+    "tofu_module_authority": "xoxd-ai/GloriousFlywheel",
+    "package_registry": "xoxd-ai/bazel-registry"
   },
   "enrollment": {
-    "forgeScope": "tinyland-inc",
+    "forgeScope": "xoxd-ai",
     "operatorOverlay": "tinyland-infra",
     "substrateMode": "compatibility-local-only"
   },

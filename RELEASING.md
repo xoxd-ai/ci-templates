@@ -37,7 +37,7 @@ and may break without notice**.
    ```bash
    gh api --method PUT \
      -H 'X-GitHub-Api-Version: 2026-03-10' \
-     repos/tinyland-inc/ci-templates/immutable-releases
+     repos/xoxd-ai/ci-templates/immutable-releases
    ```
 
 5. **Prove the dependency closure offline, then cut signed tags with an exact
@@ -81,7 +81,7 @@ and may break without notice**.
    gh release create "$ver" --verify-tag --draft \
      --title "$ver" --notes-file "$notes_file"
    gh release edit "$ver" --draft=false
-   gh api "repos/tinyland-inc/ci-templates/releases/tags/$ver" --jq .immutable
+   gh api "repos/xoxd-ai/ci-templates/releases/tags/$ver" --jq .immutable
    gh release verify "$ver"
    ```
 
@@ -114,7 +114,7 @@ their transitive closure MUST reference siblings by an exact immutable release,
 not `@main`, floating `@vMAJOR`, or a consumer-relative `./` path:
 
 ```yaml
-uses: tinyland-inc/ci-templates/.github/actions/nix-setup@v2.12.1
+uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
 ```
 
 This makes the exact workflow tag a closed source graph: moving the floating

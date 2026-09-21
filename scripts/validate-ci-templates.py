@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repository-local validation helpers for tinyland-inc/ci-templates."""
+"""Repository-local validation helpers for xoxd-ai/ci-templates."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from collections import Counter
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v2.14.0"
+RUST_BAZEL_RELEASE = "v5.1.1"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -211,7 +211,7 @@ def check_v4_action_client_surface() -> bool:
         "GF_REAPI_",
         "BAZEL_REMOTE_",
         "gloriousflywheel-rbe-",
-        "@v4.0.0",
+        "@v5.1.1",
         "packages: write",
         "contents: write",
         "git push",
@@ -235,9 +235,9 @@ def check_v4_action_client_surface() -> bool:
 def check_internal_refs() -> int:
     ok = check_v4_action_client_surface()
     action_pattern = re.compile(
-        r"tinyland-inc/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
+        r"xoxd-ai/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
     )
-    main_pattern = re.compile(r"tinyland-inc/ci-templates/.*@main")
+    main_pattern = re.compile(r"xoxd-ai/ci-templates/.*@main")
     exact_release = re.compile(r"\Av\d+\.\d+\.\d+\Z")
 
     for path in sorted((ROOT / ".github").glob("**/*.yml")):
@@ -650,7 +650,7 @@ def check_cache_backed_optin_contract() -> int:
         '"npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"',
         # TIN-2109: manifest validation in the cache-backed lane (fail-closed)
         "Validate repo manifest (cache-backed lane)",
-        "repo-manifest-validate@v3",
+        "repo-manifest-validate@v5.1.1",
         # TIN-2109: expected mode is manifest-driven (enrollment.substrateMode)
         ".enrollment.substrateMode",
         "GF_BAZEL_SUBSTRATE_MODE=",
@@ -934,7 +934,7 @@ def check_rust_bazel_application_contract() -> int:
                     f"{closure_path.relative_to(ROOT)}: consumer-relative action is not release-vendored: {reference}"
                 )
                 continue
-            prefix = "tinyland-inc/ci-templates/.github/actions/"
+            prefix = "xoxd-ai/ci-templates/.github/actions/"
             if reference.startswith(prefix):
                 action_ref = reference.removeprefix(prefix)
                 if "@" not in action_ref:
@@ -1012,8 +1012,8 @@ def check_rust_bazel_application_contract() -> int:
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v2.14.0",
-        "rust-bazel-binary-custody@v2.14.0",
+        "rust-bazel-preflight@v5.1.1",
+        "rust-bazel-binary-custody@v5.1.1",
         "steps.bazelisk-custody.outputs.path",
         "needs: trust-gate",
         'default: "[]"',
@@ -1022,8 +1022,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v2.14.0",
-        "cache-attachment-validate@v2.14.0",
+        "rust-bazel-contract@v5.1.1",
+        "cache-attachment-validate@v5.1.1",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",
@@ -1159,7 +1159,7 @@ def check_rust_bazel_application_contract() -> int:
         "does not claim a four-platform",
         "tinyland-infra",
         "same-repository",
-        "@v2.14.0",
+        "@v5.1.1",
         "github.ref_protected == true",
         "cache-first",
         "release publication remains a",
@@ -1210,7 +1210,7 @@ def check_rust_bazel_application_contract() -> int:
         )
         ok = False
     if re.search(
-        r"tinyland-inc/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
+        r"xoxd-ai/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
     ):
         print(
             f"{workflow_path.relative_to(ROOT)}: floating internal action reference",

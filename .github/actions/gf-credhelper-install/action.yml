@@ -21,7 +21,7 @@ inputs:
     required: true
   repository:
     description: "GitHub repository publishing the release binaries."
-    default: "tinyland-inc/GloriousFlywheel"
+    default: "xoxd-ai/GloriousFlywheel"
   install-dir:
     description: "Directory to install into (created if absent; prepended to PATH)."
     default: ""
