@@ -38,7 +38,7 @@ on:
         default: .github/lanes.json
       blahaj_repository:
         type: string
-        default: tinyland-inc/blahaj
+        default: xoxd-ai/blahaj
       enable_tailnet_qa:
         type: boolean
         default: false
@@ -157,9 +157,9 @@ jobs:
       spoke_domain: ${{ steps.load.outputs.spoke_domain }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2.12.1
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v3.2.1
       - id: load
-        uses: tinyland-inc/ci-templates/.github/actions/lanes-load@v2.12.1
+        uses: xoxd-ai/ci-templates/.github/actions/lanes-load@v3.2.1
         with:
           path: ${{ inputs.lanes_path }}
 
@@ -210,8 +210,8 @@ jobs:
       labels: ${{ inputs.nix_runner_label }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2.12.1
-      - uses: tinyland-inc/ci-templates/.github/actions/lane-dispatch@v2.12.1
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v3.2.1
+      - uses: xoxd-ai/ci-templates/.github/actions/lane-dispatch@v3.2.1
         with:
           pr_number: ${{ github.event.pull_request.number || inputs.pr_number }}
           commit_sha: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -251,8 +251,8 @@ jobs:
       labels: ${{ inputs.nix_runner_label }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-      - uses: tinyland-inc/ci-templates/.github/actions/setup-nix@v2.12.1
-      - uses: tinyland-inc/ci-templates/.github/actions/lane-reap@v2.12.1
+      - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v3.2.1
+      - uses: xoxd-ai/ci-templates/.github/actions/lane-reap@v3.2.1
         with:
           pr_number: ${{ github.event.pull_request.number || inputs.pr_number }}
           spoke: ${{ needs.lanes-load.outputs.spoke_name }}
