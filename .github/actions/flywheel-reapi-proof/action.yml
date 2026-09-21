@@ -9,7 +9,7 @@ inputs:
   gf_repository:
     description: GloriousFlywheel repository.
     required: false
-    default: tinyland-inc/GloriousFlywheel
+    default: xoxd-ai/GloriousFlywheel
   gf_workflow:
     description: GloriousFlywheel proof workflow filename.
     required: false

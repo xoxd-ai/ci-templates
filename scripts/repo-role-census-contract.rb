@@ -51,7 +51,7 @@ CENSUS_SITES = [
   { job: "flywheel-build", step: "Validate repo manifest (cache-backed lane)" },
 ].freeze
 
-VALIDATE_ACTION = %r{\Atinyland-inc/ci-templates/\.github/actions/repo-manifest-validate@}.freeze
+VALIDATE_ACTION = %r{\Axoxd-ai/ci-templates/\.github/actions/repo-manifest-validate@}.freeze
 
 # The ONE canonical `required_roles` expression, pinned byte-for-byte after
 # whitespace folding. It normalizes a JSON array to the comma form the composite
@@ -267,7 +267,7 @@ def self_test
       mutant = deep_copy(legacy)
       mutant["jobs"]["flywheel-test"]["steps"] << {
         "name" => "Validate repo manifest (new lane)",
-        "uses" => "tinyland-inc/ci-templates/.github/actions/repo-manifest-validate@v2",
+        "uses" => "xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v2",
         "with" => { "required_roles" => LEGACY_ROLES },
       }
       [mutant, restricted]

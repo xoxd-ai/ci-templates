@@ -49,7 +49,7 @@ inputs:
   blahaj_repository:
     description: Target repo for the repository_dispatch.
     required: false
-    default: tinyland-inc/blahaj
+    default: xoxd-ai/blahaj
   dispatch_token:
     description: GitHub token with repo:dispatch scope on blahaj_repository. Required unless dry_run.
     required: false
