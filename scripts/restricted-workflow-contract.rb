@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v2.12.1"
+IMMUTABLE_RELEASE = "v5.1.1"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -107,7 +107,7 @@ SPECS = {
     # allowlists, not a wrong value. The restricted variant declares the same
     # input and threads the same two sites, so it stays a strict subset and
     # `validate_restricted`'s structural comparison is unaffected.
-    legacy_sha256: "be823df49a2130b76ec867e5edd5e355d9b91cf1e7190ef624b8878561205e63",
+    legacy_sha256: "e58f86b9773c56858f325014873bcffa5703e9cfe7ba1db47e352330c93efa1a",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
@@ -660,7 +660,7 @@ def validate_restricted(name, document, legacy, spec)
       # the release-vendored composite. Normalize that immutability-only delta
       # back to the byte-pinned legacy step for the semantic comparison.
       if legacy_step["name"].to_s.start_with?("Assert shared-cache attachment") &&
-         restricted_step["uses"] == "tinyland-inc/ci-templates/.github/actions/cache-attachment-validate@#{IMMUTABLE_RELEASE}"
+         restricted_step["uses"] == "xoxd-ai/ci-templates/.github/actions/cache-attachment-validate@#{IMMUTABLE_RELEASE}"
         restricted_steps[index] = deep_copy(legacy_step)
         next
       end
@@ -669,7 +669,7 @@ def validate_restricted(name, document, legacy, spec)
       legacy_uses = legacy_step["uses"].to_s
       if restricted_uses == "actions/checkout@#{CHECKOUT_SHA}" && legacy_uses == "actions/checkout@v6"
         restricted_step["uses"] = legacy_uses
-      elsif restricted_uses.match?(%r{\Atinyland-inc/ci-templates/.+@#{Regexp.escape(IMMUTABLE_RELEASE)}\z}) &&
+      elsif restricted_uses.match?(%r{\Axoxd-ai/ci-templates/.+@#{Regexp.escape(IMMUTABLE_RELEASE)}\z}) &&
             legacy_uses == restricted_uses.sub("@#{IMMUTABLE_RELEASE}", "@#{LEGACY_FLOATING_MAJOR}")
         restricted_step["uses"] = legacy_uses
       end
@@ -707,7 +707,7 @@ def collect_uses(document)
 end
 
 def validate_immutable_ref(uses)
-  internal = uses.match(%r{\Atinyland-inc/ci-templates/\.github/actions/([^@\s]+)@(.+)\z})
+  internal = uses.match(%r{\Axoxd-ai/ci-templates/\.github/actions/([^@\s]+)@(.+)\z})
   if internal
     action, ref = internal.captures
     return "internal action #{action} must use @#{IMMUTABLE_RELEASE}, got @#{ref}" unless ref == IMMUTABLE_RELEASE
@@ -741,7 +741,7 @@ def validate_restricted_dependency_closure
         errors << "#{Pathname.new(path).relative_path_from(Pathname.new(ROOT))}: #{error}"
       end
 
-      match = uses.match(%r{\Atinyland-inc/ci-templates/\.github/actions/([^@\s]+)@})
+      match = uses.match(%r{\Axoxd-ai/ci-templates/\.github/actions/([^@\s]+)@})
       next unless match
 
       action = match[1]
@@ -765,14 +765,14 @@ def validate_restricted_dependency_closure
     "DeterminateSystems/determinate-nix-action@#{DETERMINATE_NIX_SHA}",
   ].sort
   actual_external = visited.keys.flat_map { |path| collect_uses(load_yaml(path)) }
-                           .reject { |uses| uses.start_with?("tinyland-inc/ci-templates/") }
+                           .reject { |uses| uses.start_with?("xoxd-ai/ci-templates/") }
                            .uniq.sort
   if actual_external != expected_external
     errors << "restricted external action closure changed: expected #{expected_external.join(', ')}, got #{actual_external.join(', ')}"
   end
 
   closure_text = visited.keys.map { |path| File.read(path) }.join("\n")
-  %w[trufflehog/main scripts/install.sh raw.githubusercontent.com/tinyland-inc/ci-templates].each do |forbidden|
+  %w[trufflehog/main scripts/install.sh raw.githubusercontent.com/xoxd-ai/ci-templates].each do |forbidden|
     errors << "restricted closure retains mutable network dependency #{forbidden}" if closure_text.include?(forbidden)
   end
   errors << "restricted closure retains curl-to-shell execution" if closure_text.match?(/curl[^\n]*(?:\n[^\n]*)?\|\s*(?:sh|bash)\b/)
@@ -801,15 +801,15 @@ def validate_restricted_dependency_closure
 
   # Negative oracles prove the ref classifier rejects each historical escape.
   {
-    "floating internal major" => "tinyland-inc/ci-templates/.github/actions/setup-nix@v2",
-    "mutable internal branch" => "tinyland-inc/ci-templates/.github/actions/setup-nix@main",
+    "floating internal major" => "xoxd-ai/ci-templates/.github/actions/setup-nix@v2",
+    "mutable internal branch" => "xoxd-ai/ci-templates/.github/actions/setup-nix@main",
     "third-party major" => "actions/checkout@v6",
     "consumer-relative local action" => "./.github/actions/setup-nix",
   }.each do |label, uses|
     errors << "immutable-ref negative oracle accepted #{label}" if validate_immutable_ref(uses).nil?
   end
   errors << "immutable-ref positive oracle rejected checkout SHA" if validate_immutable_ref("actions/checkout@#{CHECKOUT_SHA}")
-  errors << "immutable-ref positive oracle rejected exact self release" if validate_immutable_ref("tinyland-inc/ci-templates/.github/actions/setup-nix@#{IMMUTABLE_RELEASE}")
+  errors << "immutable-ref positive oracle rejected exact self release" if validate_immutable_ref("xoxd-ai/ci-templates/.github/actions/setup-nix@#{IMMUTABLE_RELEASE}")
 
   errors
 end
