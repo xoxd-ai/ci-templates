@@ -43,7 +43,7 @@ change cannot widen the restricted contract. The restricted lanes were already
 the "can never resolve to a hosted runner" variants; TIN-3914 simply removed the
 gap between them and the shared lanes.
 The restricted variants additionally close their dependency graph: internal
-actions use exact `@v2.12.1` refs, third-party Actions use full commit SHAs
+actions use exact `@v3.2.1` refs, third-party Actions use full commit SHAs
 (`actions/checkout` is the verified v6.1.0 commit), the cache contract executes
 from the release-vendored composite through one exact fail-closed strict step,
 and both scanner archives bind the expected digest to the downloaded file in
@@ -89,7 +89,7 @@ Pin the first release with the enforced transitive closure:
 ```yaml
 jobs:
   ci:
-    uses: tinyland-inc/ci-templates/.github/workflows/spoke-ci-restricted.yml@v2.12.1
+    uses: xoxd-ai/ci-templates/.github/workflows/spoke-ci-restricted.yml@v3.2.1
     with:
       runner_group: tinyland-infra
       nix_runner_label: tinyland-nix
@@ -102,7 +102,7 @@ jobs:
 ```yaml
 jobs:
   lane-env:
-    uses: tinyland-inc/ci-templates/.github/workflows/spoke-lane-env-restricted.yml@v2.12.1
+    uses: xoxd-ai/ci-templates/.github/workflows/spoke-lane-env-restricted.yml@v3.2.1
     with:
       runner_group: tinyland-infra
       nix_runner_label: tinyland-nix

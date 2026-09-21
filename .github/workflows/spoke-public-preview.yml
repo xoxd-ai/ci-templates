@@ -54,7 +54,7 @@ on:
         default: "[]"
       blahaj_repository:
         type: string
-        default: tinyland-inc/blahaj
+        default: xoxd-ai/blahaj
       dry_run:
         type: boolean
         default: false
@@ -73,7 +73,7 @@ jobs:
     runs-on: tinyland-nix
     timeout-minutes: 5
     steps:
-      - uses: tinyland-inc/ci-templates/.github/actions/public-preview-dispatch@v2
+      - uses: xoxd-ai/ci-templates/.github/actions/public-preview-dispatch@v3.2.1
         with:
           operation: ${{ inputs.operation }}
           spoke: ${{ inputs.spoke }}
