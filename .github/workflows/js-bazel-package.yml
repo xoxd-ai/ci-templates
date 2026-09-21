@@ -89,9 +89,9 @@ on:
         type: string
         default: "3"
       trusted_module_owners:
-        description: "Comma-separated GitHub owners whose github.com/raw.githubusercontent.com fetch URIs receive the registry token via the Bazel credential helper. Org-parameterized (TIN-2353): a tenant org lists itself to fetch its own private Bazel modules; tinyland-inc remains the default."
+        description: "Comma-separated GitHub owners whose github.com/raw.githubusercontent.com fetch URIs receive the registry token via the Bazel credential helper. Org-parameterized (TIN-2353): a tenant org lists itself to fetch its own private Bazel modules; xoxd-ai and tinyland-inc (the pre-rename owner still named by registry source URLs) are the default."
         type: string
-        default: "xoxd-ai"
+        default: "xoxd-ai,tinyland-inc"
       cache_backed:
         description: >-
           Opt-in (default false) shared-cache-backed Bazel validation. When true,
@@ -537,7 +537,7 @@ jobs:
 
           owners = [
               o.strip().lower()
-              for o in (os.environ.get("BAZEL_TRUSTED_MODULE_OWNERS") or "tinyland-inc").split(",")
+              for o in (os.environ.get("BAZEL_TRUSTED_MODULE_OWNERS") or "xoxd-ai,tinyland-inc").split(",")
               if o.strip()
           ]
           prefixes = tuple(
@@ -566,7 +566,7 @@ jobs:
             {
               printf 'TINYLAND_REGISTRY_GITHUB_TOKEN=%s\n' "$TINYLAND_REGISTRY_GITHUB_TOKEN"
               printf 'BAZEL_GITHUB_CREDENTIAL_HELPER=%s\n' "$helper_path"
-              printf 'BAZEL_TRUSTED_MODULE_OWNERS=%s\n' "${BAZEL_TRUSTED_MODULE_OWNERS:-tinyland-inc}"
+              printf 'BAZEL_TRUSTED_MODULE_OWNERS=%s\n' "${BAZEL_TRUSTED_MODULE_OWNERS:-xoxd-ai,tinyland-inc}"
             } >> "$GITHUB_ENV"
           else
             echo "::warning::No GitHub token is available for private Bazel module tarball fetches."
