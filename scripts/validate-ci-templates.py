@@ -174,6 +174,10 @@ def check_v4_action_client_surface() -> bool:
     required = {
         "github.event_name == 'push'": "push-only admitted event",
         "github.event_name == 'pull_request'": "same-repository pull-request event",
+        "github.event.pull_request.head.repo.full_name == github.repository": "same-repository pull-request admission",
+        "inputs.fork_owner_allowlist != ''": "fork admission gated on a non-empty allowlist",
+        "format(',{0},', inputs.fork_owner_allowlist)": "comma-padded allowlist for exact per-entry match",
+        "format(',{0},', github.event.pull_request.head.repo.owner.login)": "fork admission keyed on the head repository owner login",
         'fromJSON(format(\'\'{{"pull_request":"{0}","push":"{1}"}}\'\'': "event-keyed source identity without a fallback",
         "github.event.pull_request.head.sha": "exact pull-request head identity",
         "github.sha))[github.event_name]": "exact push identity",
@@ -193,9 +197,21 @@ def check_v4_action_client_surface() -> bool:
             failures.append(f"missing {claim}")
 
     if re.findall(r"^      ([a-z_][a-z0-9_]*):$", call_surface, re.MULTILINE) != [
-        "action_name"
+        "action_name",
+        "fork_owner_allowlist",
     ]:
-        failures.append("workflow_call must expose only the checked-in action name")
+        failures.append(
+            "workflow_call must expose only the checked-in action name and the "
+            "fork owner allowlist"
+        )
+    # TIN-4251 fork-pilot edge: the allowlist input is default-off. An absent or
+    # non-empty default would admit forks for every non-opted consumer.
+    if re.search(
+        r"^      fork_owner_allowlist:\n(?:        .*\n)*?        default: ''$",
+        call_surface,
+        re.MULTILINE,
+    ) is None:
+        failures.append("fork_owner_allowlist must default to the empty string")
     if document.count("id-token: write") != 1:
         failures.append("the thin dispatcher must carry exactly one OIDC permission")
     if re.findall(

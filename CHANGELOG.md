@@ -5,6 +5,19 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
+  `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
+  A pull request whose head repository owner is in the allowlist is admitted
+  to the action-fabric job alongside same-repository pull requests and pushes.
+  Allowlisted forks run on the adopting organization's self-hosted
+  `gf-v4-dispatch` edge with the same read-only token and no secrets. Per-fork
+  tenancy and organization-user federation refinement is owed by the GF
+  developers under TIN-4251 (operator ruling 2026-09-22). Unset, every
+  non-opted consumer keeps the pre-existing admission behaviour; the v4
+  contract check pins the empty default and the exact-match gate.
+
 ## [5.1.1] - 2026-09-21
 
 ### Fixed

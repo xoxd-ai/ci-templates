@@ -61,7 +61,11 @@ admissibility boundary, not a claim that one invocation executes every member.
 For `pull_request`, the admitted source is
 `github.event.pull_request.head.sha`, matching the owner-overlay and admission
 identity rather than GitHub's synthetic merge commit. For `push`, it is
-`github.sha`. Other event shapes do not enter the action-fabric job:
+`github.sha`. A caller may set `fork_owner_allowlist` (comma-separated GitHub
+logins, default empty) to also admit pull requests whose head repository owner
+is listed; this is the TIN-4251 fork-pilot edge, and allowlisted forks run on
+the organization's self-hosted edge with the same read-only token and no
+secrets. Other event shapes do not enter the action-fabric job:
 
 ```text
 /usr/local/bin/gf-action-client run \
