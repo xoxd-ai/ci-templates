@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v3.2.1"
+IMMUTABLE_RELEASE = "v3.2.2"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -66,6 +66,7 @@ EXPECTED_CLOSURE_ACTIONS = %w[
   lane-status-check
   lanes-load
   nix-setup
+  repo-manifest-jsonschema
   repo-manifest-validate
   secrets-scan
   setup-nix
@@ -109,7 +110,12 @@ SPECS = {
     # allowlists, not a wrong value. The restricted variant declares the same
     # input and threads the same two sites, so it stays a strict subset and
     # `validate_restricted`'s structural comparison is unaffected.
-    legacy_sha256: "55edc488570a6e153f2b1d2fc4d567b68f50f1f8c305073b7dea95c9cf45be47",
+    # Re-recorded for v3.2.2: every manifest-validation caller now first runs
+    # the release-vendored repo-manifest-jsonschema provider. The provider
+    # exposes only the lockfile-pinned JSON Schema interpreter through
+    # REPO_MANIFEST_PYTHON; workflow inputs, runner routing, and the remaining
+    # default execution shape stay unchanged.
+    legacy_sha256: "5a6d4d90acf2a19a959eb5e311291b8a0d25eff7926b9253161f86e3f6194964",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
@@ -148,7 +154,8 @@ SPECS = {
     # `tinyland-nix`, matching the literal `tinyland-dind` / `tinyland-nix-kvm`
     # routing its other two jobs already used. No input surface changes, so the
     # restricted variant stays a strict subset unchanged.
-    legacy_sha256: "4ee79e5ddbd84aa230cc93132690a879d75817fecd69042bac6a57d61bd61742",
+    # Re-recorded for v3.2.2's exact internal self-release ref advancement.
+    legacy_sha256: "ea9192088b52092495414e09c258eeb41aec0b3cb3a780ff87e3ca6e9ea5bcde",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",

@@ -5,6 +5,24 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.2.2] - 2026-09-21
+
+### Fixed
+
+- **Every reusable manifest-validation call now provides its JSON Schema
+  engine before it invokes `repo-manifest-validate`.** `spoke-ci`, its
+  restricted variant, and the cache-backed `js-bazel-package` lane invoke the
+  new internal `repo-manifest-jsonschema` action immediately before every
+  validation action. It builds the `python3Packages.jsonschema` interpreter
+  from this release's lockfile-pinned ci-templates devShell, proves the import,
+  and exports that exact wrapper through `REPO_MANIFEST_PYTHON`. The
+  validator's explicit override probe intentionally matches that wrapper's
+  execution mode; runner-image fallbacks remain isolated. This closes the
+  v3.2.0/3.2.1 dead end where `setup-nix` made Nix available but did not supply
+  `jsonschema`, so a valid manifest gate could refuse with exit 5 before it
+  read the manifest. No reusable-workflow inputs, action inputs, schemas, or
+  default lane routing changed.
+
 ## [3.2.1] - 2026-09-21
 
 ### Fixed
