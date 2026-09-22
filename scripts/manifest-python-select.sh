@@ -22,10 +22,14 @@
 #   3. `python3` resolved from PATH -- kept last on purpose: this is exactly
 #      the entry setup-nix's Nix profile interpreter shadows.
 #
-# Each candidate is probed with `<candidate> -I -c 'import jsonschema'`
-# (`-I` isolates the probe from a caller's PYTHONPATH/site customization, so
-# the probe answers "can THIS interpreter import it unaided", not "can it be
-# made to").
+# Runner-image candidates are probed with `<candidate> -I -c 'import
+# jsonschema'` (`-I` isolates the probe from a caller's PYTHONPATH/site
+# customization, so the probe answers "can THIS interpreter import it unaided",
+# not "can it be made to"). The explicit $REPO_MANIFEST_PYTHON override is
+# different: repo-manifest-jsonschema has already executed and proved that
+# wrapper, and its lockfile-pinned Nix devShell exposes packages through the
+# interpreter environment that `-I` deliberately discards. Probe it exactly as
+# the validator will invoke it.
 #
 # Output contract:
 #   - Every candidate's verdict is logged to stderr as an `::notice::` line,
@@ -48,15 +52,19 @@ sys_candidate="${_MANIFEST_PYTHON_SYS_CANDIDATE:-/usr/bin/python3}"
 
 declare -a candidate_paths=()
 declare -a candidate_labels=()
+declare -a candidate_explicit=()
 
 if [[ -n "${REPO_MANIFEST_PYTHON:-}" ]]; then
   candidate_paths+=("${REPO_MANIFEST_PYTHON}")
   candidate_labels+=("\$REPO_MANIFEST_PYTHON (${REPO_MANIFEST_PYTHON})")
+  candidate_explicit+=(true)
 fi
 candidate_paths+=("${sys_candidate}")
 candidate_labels+=("${sys_candidate}")
+candidate_explicit+=(false)
 candidate_paths+=("python3")
 candidate_labels+=("python3 (PATH)")
+candidate_explicit+=(false)
 
 declare -a verdicts=()
 chosen=""
@@ -72,7 +80,12 @@ for i in "${!candidate_paths[@]}"; do
     continue
   fi
 
-  if "${resolved}" -I -c 'import jsonschema' >/dev/null 2>&1; then
+  if [[ "${candidate_explicit[$i]}" == true ]]; then
+    probe=("${resolved}" -c 'import jsonschema')
+  else
+    probe=("${resolved}" -I -c 'import jsonschema')
+  fi
+  if "${probe[@]}" >/dev/null 2>&1; then
     echo "::notice::manifest-python-select: candidate ${label} (${resolved}): has jsonschema -- SELECTED" >&2
     chosen="${resolved}"
     break
@@ -83,7 +96,7 @@ for i in "${!candidate_paths[@]}"; do
 done
 
 if [[ -z "${chosen}" ]]; then
-  echo "::error::no candidate python interpreter could import 'jsonschema', so this gate has no validator. It REFUSES to substitute a weaker one (TIN-4132). Candidates tried, in order: ${verdicts[*]}. Remedy: make one of these interpreters able to import jsonschema -- set \$REPO_MANIFEST_PYTHON to an interpreter that can, or add a step BEFORE this one that installs it (\`nix profile install nixpkgs#python3Packages.jsonschema\`) so /usr/bin/python3 or PATH's python3 carries it. The ci-templates nix-setup and setup-nix composites do NOT provide it: nix-setup configures Attic/Bazel cache endpoints, setup-nix installs Nix itself, and neither installs a python package." >&2
+  echo "::error::no candidate python interpreter could import 'jsonschema', so this gate has no validator. It REFUSES to substitute a weaker one (TIN-4132). Candidates tried, in order: ${verdicts[*]}. Remedy: add a step BEFORE this one that provides a complete interpreter through \$REPO_MANIFEST_PYTHON; spoke-ci.yml uses repo-manifest-jsonschema for that purpose. The ci-templates nix-setup and setup-nix composites do NOT provide it: nix-setup configures Attic/Bazel cache endpoints, setup-nix installs Nix itself, and neither installs a python package." >&2
   exit 5
 fi
 

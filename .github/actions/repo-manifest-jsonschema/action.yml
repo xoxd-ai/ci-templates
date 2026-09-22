@@ -1,0 +1,32 @@
+name: repo-manifest-jsonschema
+description: Provide the lockfile-pinned Python JSON Schema engine for repo-manifest-validate.
+
+runs:
+  using: composite
+  steps:
+    - name: Provide repo manifest JSON Schema engine
+      shell: bash
+      run: |
+        set -euo pipefail
+        action_dir="${{ github.action_path }}"
+        templates_root="$action_dir/../../.."
+        wrapper="${RUNNER_TEMP:?RUNNER_TEMP is required}/ci-templates-repo-manifest-python"
+
+        if [[ ! -f "$templates_root/flake.nix" || ! -f "$templates_root/flake.lock" ]]; then
+          echo "::error::ci-templates' lockfile-pinned JSON Schema environment is missing at $templates_root"
+          exit 1
+        fi
+
+        # `python3Packages.jsonschema` is part of ci-templates' own pinned
+        # devShell. Keep that closure rather than assuming the consumer's flake
+        # carries it: the reusable manifest job must make the engine available
+        # before it calls repo-manifest-validate.
+        printf '#!/usr/bin/env bash\nset -euo pipefail\nexec nix develop %q --command python3 "$@"\n' \
+          "$templates_root" > "$wrapper"
+        chmod +x "$wrapper"
+        "$wrapper" -c 'from importlib.metadata import version; import jsonschema; print("::notice::repo-manifest-jsonschema: jsonschema=" + version("jsonschema"))'
+
+        # The validator selector honours this explicit, already-probed
+        # interpreter ahead of runner-image candidates. GITHUB_ENV makes it
+        # available to the following composite-action step in this job only.
+        echo "REPO_MANIFEST_PYTHON=$wrapper" >> "$GITHUB_ENV"
