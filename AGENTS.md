@@ -50,6 +50,12 @@ a fleet-wide change.
 5. **Amend `CHANGELOG.md` `## [Unreleased]`** in every feature/fix PR. Release
    PRs move that content into the dated version section.
 6. **Run `just check` before pushing** (or `nix develop --command just check`).
+   TIN-4257 `3b1d6284` permits one narrow source-validation bootstrap for the
+   signed Draft #165 candidate: its exact pushed source runs the unchanged
+   complete check through this repository's existing `spoke-ci-v4.yml` direct
+   self-CI job on shared `tinyland-nix`. This exception changes check timing,
+   not the required verdict; it grants no GF execution, publisher runtime,
+   immutable release, or consumer adoption authority.
 
 ## Local validation
 
@@ -111,11 +117,14 @@ readback, and retain its digest in-process. No workflow input, copied digest,
 caller-provided layout, workflow-side build, or second action can replace that
 transaction. Reviewed materialization bounds remain required.
 
-This is a prospective publisher call, not compatibility with the current GF
-command, which still requires caller-supplied runtime-base layout. The release
-stays held until the matching compiled remote producer and exact-source proof
-exist; deleting the obsolete input neither installs that producer nor proves
-publication or serving.
+This publisher CLI matches GF #1837, merged as
+`cb893dd68399e5778f32cfa5322729eac60df5b9`: it calls
+`PublishInstalledNativeApplication` without a caller-supplied runtime-base
+layout. That is source compatibility, not an installed-client or runtime
+receipt. Keep the release Draft/no-auto pending the matching installed client,
+qualified same-invocation exact-source publication proof, exact-release
+registered remote validation and the attended immutable release transaction.
+The source merge does not prove publication or serving.
 
 Missing App, overlay revision, owner-supply catalog, dynamic binding, OIDC,
 client, REAPI authority, or result is a hard product failure. There is no v4

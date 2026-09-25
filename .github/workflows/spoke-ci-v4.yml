@@ -2,8 +2,21 @@ name: spoke-ci-v4
 # Immutable v4 action-fabric contract released under TIN-4249. The release
 # publishes workflow source only; consumer adoption, provider convergence, and
 # runtime proof remain separately verified product transactions.
+#
+# GF v4 fork-pilot edge (TIN-4251; operator ruling 2026-09-22). By default the
+# action-fabric job admits pushes and pull requests whose head repository is
+# the base repository, and nothing else. A caller may name fork owners in
+# `fork_owner_allowlist`; a pull request whose head repository owner is one of
+# those logins is then admitted as well. Allowlisted fork pull requests run on
+# the adopting organization's self-hosted `gf-v4-dispatch` edge with the same
+# read-only `contents` token and no secrets; the workflow neither elevates nor
+# forwards anything to the fork. Per-fork tenancy and organization-user
+# federation refinement is owed by the GF developers under TIN-4251; this
+# input is the pilot edge, not that design. The default (empty) keeps every
+# non-opted consumer byte-identical in behaviour.
 
 on:
+  push:
   workflow_call:
     inputs:
       action_name:
@@ -29,18 +42,61 @@ on:
         required: false
         default: 0
         type: number
+      fork_owner_allowlist:
+        description: >-
+          Comma-separated GitHub logins (no whitespace) whose forks may open
+          admitted pull requests. Empty (the default) admits no fork.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   action-fabric:
-    if: ${{ (github.event_name == 'push' && !(inputs.publish_application && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha)) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+    # Admission: every push; a pull request from the base repository; or a
+    # pull request whose head repository owner login is in the caller's
+    # comma-separated allowlist. The comma padding makes the match exact per
+    # entry (GitHub logins are case-insensitive, and so is contains()). The
+    # exact workflow_ref guard excludes only this file's direct self-CI run;
+    # the required action_name input also refuses direct pushes in forked
+    # copies, which have no workflow_call inputs. A reusable call, including
+    # one from this repository, keeps its caller.
+    if: >-
+      ${{
+        inputs.action_name
+        && !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')
+        && (
+          (
+            github.event_name == 'push'
+            && !(
+              inputs.publish_application
+              && github.ref == 'refs/heads/main'
+              && github.workflow_sha == github.sha
+            )
+          )
+          || (
+            github.event_name == 'pull_request'
+            && (
+              github.event.pull_request.head.repo.full_name == github.repository
+              || (
+                inputs.fork_owner_allowlist != ''
+                && contains(
+                  format(',{0},', inputs.fork_owner_allowlist),
+                  format(',{0},', github.event.pull_request.head.repo.owner.login)
+                )
+              )
+            )
+          )
+        )
+      }}
     # Every adopting organization provisions this thin dispatch edge in its
     # own runner group. The edge submits one named action; it is not the
     # execution pool or a Tinyland-owned provider route.
     runs-on: gf-v4-dispatch
     timeout-minutes: 45
-    permissions:
-      contents: read
-      id-token: write
     env:
       SOURCE_SHA: '${{ fromJSON(format(''{{"pull_request":"{0}","push":"{1}"}}'', github.event.pull_request.head.sha, github.sha))[github.event_name] }}'
     steps:
@@ -64,11 +120,12 @@ jobs:
             --source-sha "$SOURCE_SHA" \
             --result-dir "$RUNNER_TEMP/gf-action-result-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}"
 
-  # Prospective caller: release requires the matching compiled publisher's
-  # authenticated remote runtime-base subtransaction in this same invocation.
-  # The current caller-layout publisher does not satisfy that contract.
+  # CLI source matches GF #1837 (cb893dd68399e5778f32cfa5322729eac60df5b9),
+  # which uses PublishInstalledNativeApplication without a caller layout.
+  # Draft/no-auto remains: installed-client and qualified exact-source runtime
+  # proof, registered exact-release validation and attended release are required.
   application-publisher:
-    if: ${{ inputs.publish_application && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha }}
+    if: ${{ !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') && inputs.publish_application && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha }}
     runs-on: gf-v4-dispatch
     timeout-minutes: 45
     concurrency:
@@ -104,3 +161,22 @@ jobs:
             --publication-output "$RUNNER_TEMP/gf-application-publication-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}.json" \
             --materialized-root-max-files "$MATERIALIZED_ROOT_MAX_FILES" \
             --materialized-root-max-bytes "$MATERIALIZED_ROOT_MAX_BYTES"
+
+  # TIN-4257 3b1d6284: source-validation bootstrap only. github.workflow_ref
+  # identifies the caller in a reusable call, but this file on a direct push.
+  # This is the complete Justfile check, not GF execution or publication.
+  source-self-check:
+    if: ${{ github.repository == 'xoxd-ai/ci-templates' && github.event_name == 'push' && startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') }}
+    runs-on: tinyland-nix
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact source revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Check complete repository source contract
+        run: nix develop --command just check

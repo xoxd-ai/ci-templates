@@ -62,7 +62,11 @@ admissibility boundary, not a claim that one invocation executes every member.
 For `pull_request`, the admitted source is
 `github.event.pull_request.head.sha`, matching the owner-overlay and admission
 identity rather than GitHub's synthetic merge commit. For `push`, it is
-`github.sha`. Other event shapes do not enter the action-fabric job:
+`github.sha`. A caller may set `fork_owner_allowlist` (comma-separated GitHub
+logins, default empty) to also admit pull requests whose head repository owner
+is listed; this is the TIN-4251 fork-pilot edge, and allowlisted forks run on
+the organization's self-hosted edge with the same read-only token and no
+secrets. Other event shapes do not enter the action-fabric job:
 
 ```text
 /usr/local/bin/gf-action-client run \
@@ -79,6 +83,13 @@ ActionPlan remains the sole result-disposition authority, and the workflow does
 not parse or upload the directory. It does not reproduce client lifecycles in
 Bash, Python, proxy composites, OCI helpers, or fallback paths.
 
+For this repository alone, a direct push to `spoke-ci-v4.yml` runs the exact
+pushed revision's unchanged complete `just check` on shared self-hosted
+`tinyland-nix`. TIN-4257 `3b1d6284` permits this source-validation bootstrap
+for the signed Draft #165 candidate; it is not a consumer action, GF remote
+execution receipt, application publication, or release qualification. The
+consumer action and publisher jobs do not run on this self-check path.
+
 The proposed `v5.2.0` release's `publish_application: true` replaces the ordinary
 push action with the same image-custodied client's `publish-application`
 transaction only when the caller is on a protected canonical `main`.
@@ -94,11 +105,15 @@ readback, and pass its digest internally. There is no runtime-base workflow
 input, copied digest, caller-provided layout, workflow-side build, or second
 action.
 
-The release remains held: the current GF publisher still requires a
-caller-supplied runtime-base layout and is not compatible with this proposed
-call. Deleting its obsolete workflow input is not implementation of the remote
-producer. A matching compiled producer and exact-source proof must precede
-release or publisher adoption.
+The matching publisher CLI is implemented in
+[GF #1837](https://github.com/tinyland-inc/GloriousFlywheel/pull/1837), merged as
+`cb893dd68399e5778f32cfa5322729eac60df5b9`. It calls
+`PublishInstalledNativeApplication` without a caller-supplied runtime-base
+layout. This establishes source compatibility only. The release remains
+Draft/no-auto pending the matching installed client, qualified same-invocation
+exact-source publication proof, exact-release registered remote `just check`
+and dependency-closure proof, and the attended immutable release transaction.
+The source merge does not establish runtime qualification or publisher adoption.
 
 Consumers needing only the qualified-result repair may pin the immutable
 `@v5.2.0` release only after it exists and the provider image accepts `run`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repository-local validation helpers for tinyland-inc/ci-templates."""
+"""Repository-local validation helpers for xoxd-ai/ci-templates."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from collections import Counter
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v2.14.0"
+RUST_BAZEL_RELEASE = "v5.1.1"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -159,7 +159,9 @@ def check_v4_action_client_surface() -> bool:
     """Assert v4 execution and opt-in publication stay compiled-client calls.
 
     This replaces the larger inline OCI/proxy assertion family. Retire it when
-    the typed workflow-effect contract directly enforces this boundary.
+    the typed workflow-effect contract directly enforces this boundary. The
+    TIN-4257 3b1d6284 self-source bootstrap assertions retire when native
+    ci-templates self-validation replaces this direct-push exception.
     """
 
     path = ROOT / ".github/workflows/spoke-ci-v4.yml"
@@ -172,19 +174,32 @@ def check_v4_action_client_surface() -> bool:
     failures: list[str] = []
 
     required = {
+        "  push:\n  workflow_call:": "source-only direct push validation beside reusable calls",
         (
-            "  action-fabric:\n"
-            "    if: ${{ (github.event_name == 'push' && !(inputs.publish_application && "
-            "github.ref == 'refs/heads/main' && "
-            "github.workflow_sha == github.sha)) || (github.event_name == 'pull_request' && "
-            "github.event.pull_request.head.repo.full_name == github.repository) }}"
-        ): "ordinary push dispatch outside publication eligibility and same-repository PRs",
+            "        inputs.action_name\n"
+            "        && !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')"
+        ): "direct pushes in any repo excluded from the reusable action job",
+        "!startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')": "direct self-source runs excluded from consumer jobs",
+        (
+            "            github.event_name == 'push'\n"
+            "            && !(\n"
+            "              inputs.publish_application\n"
+            "              && github.ref == 'refs/heads/main'\n"
+            "              && github.workflow_sha == github.sha\n"
+            "            )"
+        ): "ordinary push dispatch outside exact publication eligibility",
         (
             "  application-publisher:\n"
-            "    if: ${{ inputs.publish_application && github.event_name == 'push' && "
+            "    if: ${{ !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') && inputs.publish_application && github.event_name == 'push' && "
             "github.ref == 'refs/heads/main' && "
             "github.workflow_sha == github.sha }}"
         ): "opt-in canonical-main publication with exact caller-workflow source",
+        "github.event_name == 'push'": "push-only admitted event",
+        "github.event_name == 'pull_request'": "same-repository pull-request event",
+        "github.event.pull_request.head.repo.full_name == github.repository": "same-repository pull-request admission",
+        "inputs.fork_owner_allowlist != ''": "fork admission gated on a non-empty allowlist",
+        "format(',{0},', inputs.fork_owner_allowlist)": "comma-padded allowlist for exact per-entry match",
+        "format(',{0},', github.event.pull_request.head.repo.owner.login)": "fork admission keyed on the head repository owner login",
         'fromJSON(format(\'\'{{"pull_request":"{0}","push":"{1}"}}\'\'': "event-keyed source identity without a fallback",
         "github.event.pull_request.head.sha": "exact pull-request head identity",
         "github.sha))[github.event_name]": "exact push identity",
@@ -203,6 +218,14 @@ def check_v4_action_client_surface() -> bool:
         "group: gf-i09-application-publisher-${{ github.repository }}": "repository-keyed publisher concurrency",
         "cancel-in-progress: false": "non-cancelling publisher concurrency",
         '--publication-output "$RUNNER_TEMP/gf-application-publication-': "private publisher receipt path",
+        (
+            "  source-self-check:\n"
+            "    if: ${{ github.repository == 'xoxd-ai/ci-templates' && github.event_name == 'push' && startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') }}"
+        ): "exact source-repository push-only bootstrap check",
+        "runs-on: tinyland-nix": "shared self-hosted source-validation class",
+        "ref: ${{ github.sha }}": "self-check exact pushed revision",
+        "persist-credentials: false": "checkout without retained GitHub credentials",
+        "nix develop --command just check": "unchanged complete repository check",
     }
     for snippet, claim in required.items():
         if snippet not in document:
@@ -213,16 +236,25 @@ def check_v4_action_client_surface() -> bool:
         "publish_application",
         "materialized_root_max_files",
         "materialized_root_max_bytes",
+        "fork_owner_allowlist",
     ]:
-        failures.append("workflow_call must expose only the action and conditional GF-I09 publication inputs")
+        failures.append("workflow_call must expose only the action, conditional GF-I09 publication, and fork allowlist inputs")
+    # TIN-4251 fork-pilot edge: the allowlist input is default-off. An absent or
+    # non-empty default would admit forks for every non-opted consumer.
+    if re.search(
+        r"^      fork_owner_allowlist:\n(?:        .*\n)*?        default: ''$",
+        call_surface,
+        re.MULTILINE,
+    ) is None:
+        failures.append("fork_owner_allowlist must default to the empty string")
     if document.count("id-token: write") != 2 or document.count("packages: write") != 1:
         failures.append("only the opt-in publisher may add package-write authority to the two OIDC jobs")
     if re.findall(
         r"^  ([a-z_][a-z0-9_-]*):$",
         document.partition("\njobs:\n")[2],
         re.MULTILINE,
-    ) != ["action-fabric", "application-publisher"]:
-        failures.append("v4 must contain only the action and protected application-publisher jobs")
+    ) != ["action-fabric", "application-publisher", "source-self-check"]:
+        failures.append("v4 must contain only the action, protected publisher and source-bootstrap jobs")
 
     for forbidden in (
         "executionPool",
@@ -231,6 +263,7 @@ def check_v4_action_client_surface() -> bool:
         "BAZEL_REMOTE_",
         "gloriousflywheel-rbe-",
         "@v4.0.0",
+        "@v5.1.1",
         "contents: write",
         "git push",
         "curl ",
@@ -253,9 +286,9 @@ def check_v4_action_client_surface() -> bool:
 def check_internal_refs() -> int:
     ok = check_v4_action_client_surface()
     action_pattern = re.compile(
-        r"tinyland-inc/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
+        r"xoxd-ai/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
     )
-    main_pattern = re.compile(r"tinyland-inc/ci-templates/.*@main")
+    main_pattern = re.compile(r"xoxd-ai/ci-templates/.*@main")
     exact_release = re.compile(r"\Av\d+\.\d+\.\d+\Z")
 
     for path in sorted((ROOT / ".github").glob("**/*.yml")):
@@ -429,6 +462,14 @@ def check_flywheel_reapi_proof_contract() -> int:
 MANIFEST_VALIDATE_STEP = "Validate repo manifest schema"
 MANIFEST_VALIDATOR_BASENAME = "manifest-schema-validate.py"
 
+#: The interpreter-selection helper (2026-09-06 follow-up to TIN-4132): the
+#: step no longer invokes a literal `python3`/`python` -- it captures the
+#: output of this script into a variable and invokes THAT. A variable whose
+#: assignment's RHS names this basename is trusted as "a real interpreter
+#: path was resolved here", the same way `interpreter in {"python","python3"}`
+#: is trusted for a literal invocation below.
+MANIFEST_PYTHON_SELECTOR_BASENAME = "manifest-python-select.sh"
+
 _SHELL_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
 _SHELL_VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 
@@ -503,6 +544,7 @@ def manifest_validator_invocations(
         return None, []
 
     env: dict[str, str] = {}
+    interpreter_selector_vars: set[str] = set()
     invocations: list[list[str]] = []
     unlexable: list[str] = []
     for raw in body.splitlines():
@@ -518,17 +560,84 @@ def manifest_validator_invocations(
             continue
         assignment = _SHELL_ASSIGN.match(tokens[0]) if len(tokens) == 1 else None
         if assignment:
-            env[assignment.group(1)] = _expand_shell_vars(assignment.group(2), env)
+            name, value = assignment.group(1), assignment.group(2)
+            env[name] = _expand_shell_vars(value, env)
+            # Trust this variable as a selected-interpreter position only when
+            # its value comes from CAPTURING the selector script's output
+            # ($(...)); a variable that merely names the selector's path (e.g.
+            # `selector=".../manifest-python-select.sh"`) is not an
+            # interpreter and must not be trusted in argv[0] position.
+            if MANIFEST_PYTHON_SELECTOR_BASENAME in env[name] and "$(" in env[name]:
+                interpreter_selector_vars.add(name)
             continue
+        raw_interpreter_token = tokens[0]
         argv = [_expand_shell_vars(token, env) for token in tokens]
         interpreter = pathlib.PurePosixPath(argv[0]).name
+        # A bare `$chosen`/`${chosen}` in argv[0] cannot be resolved to a real
+        # path by textual substitution alone (its value came from a captured
+        # command's OUTPUT, not another shell variable) -- so it is trusted
+        # here only when it names a variable this same step assigned from
+        # MANIFEST_PYTHON_SELECTOR_BASENAME's output. Anything else in argv[0]
+        # position is held to the existing literal-python-or-basename rule.
+        selector_var_match = _SHELL_VAR.fullmatch(raw_interpreter_token)
+        argv0_is_selected_interpreter = bool(
+            selector_var_match
+            and (selector_var_match.group(1) or selector_var_match.group(2))
+            in interpreter_selector_vars
+        )
         runs_validator = argv[0].endswith(MANIFEST_VALIDATOR_BASENAME) or (
-            interpreter in {"python", "python3"}
+            (interpreter in {"python", "python3"} or argv0_is_selected_interpreter)
             and any(a.endswith(MANIFEST_VALIDATOR_BASENAME) for a in argv[1:])
         )
         if runs_validator:
             invocations.append(argv)
     return invocations, unlexable
+
+
+def _selftest_manifest_validator_invocations() -> None:
+    """Oracle for `manifest_validator_invocations`'s interpreter-selector trust.
+
+    A variable is trusted in argv[0] position only when its assignment
+    CAPTURES the selector script's output ($(...)); a variable that merely
+    names the selector's own path is not an interpreter. This pins that rule
+    so a future loosening (e.g. reverting to a plain substring check) fails
+    `just check` instead of silently reopening the never-executes-the-
+    validator gap this guard exists to catch.
+    """
+    step_header = f"      - name: {MANIFEST_VALIDATE_STEP}\n        run: |\n"
+
+    # A path-only variable (no command substitution) naming the selector
+    # script must NOT be trusted as an interpreter -- invoking it in argv[0]
+    # position must be reported as "never executes the validator".
+    untrusted = (
+        step_header
+        + f'          selector="$dir/{MANIFEST_PYTHON_SELECTOR_BASENAME}"\n'
+        + f'          "$selector" {MANIFEST_VALIDATOR_BASENAME} --schemas-dir schemas manifest.json\n'
+    )
+    invocations, unlexable = manifest_validator_invocations(untrusted)
+    assert not unlexable, f"selftest fixture should lex cleanly, got: {unlexable}"
+    assert invocations == [], (
+        "regression: a variable merely NAMING "
+        f"{MANIFEST_PYTHON_SELECTOR_BASENAME} (no $(...) capture) is now "
+        "trusted as a selected interpreter -- this reopens the "
+        "never-executes-the-validator gap; require a captured command "
+        "substitution before trusting the variable"
+    )
+
+    # A variable whose assignment CAPTURES the selector's stdout ($(...))
+    # must still be trusted -- this is the real action.yml shape.
+    trusted = (
+        step_header
+        + f'          chosen="$(bash "$dir/{MANIFEST_PYTHON_SELECTOR_BASENAME}")"\n'
+        + f'          "$chosen" {MANIFEST_VALIDATOR_BASENAME} --schemas-dir schemas manifest.json\n'
+    )
+    invocations, unlexable = manifest_validator_invocations(trusted)
+    assert not unlexable, f"selftest fixture should lex cleanly, got: {unlexable}"
+    assert len(invocations) == 1, (
+        "regression: a variable that captures "
+        f"{MANIFEST_PYTHON_SELECTOR_BASENAME}'s output via $(...) is no "
+        "longer trusted as a selected interpreter"
+    )
 
 
 def check_cache_backed_optin_contract() -> int:
@@ -540,6 +649,8 @@ def check_cache_backed_optin_contract() -> int:
     `--remote_cache`, gates on the cache-attachment contract, and NEVER wires a
     remote executor (cache-first only, TIN-1997 Option D).
     """
+    _selftest_manifest_validator_invocations()
+
     workflow_path = ROOT / ".github/workflows/js-bazel-package.yml"
     docs_path = ROOT / "docs/js-bazel-package.md"
     bazelrc_path = ROOT / "bazelrc/ci-cached.bazelrc"
@@ -590,7 +701,7 @@ def check_cache_backed_optin_contract() -> int:
         '"npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"',
         # TIN-2109: manifest validation in the cache-backed lane (fail-closed)
         "Validate repo manifest (cache-backed lane)",
-        "repo-manifest-validate@v3",
+        "repo-manifest-validate@v5.1.1",
         # TIN-2109: expected mode is manifest-driven (enrollment.substrateMode)
         ".enrollment.substrateMode",
         "GF_BAZEL_SUBSTRATE_MODE=",
@@ -874,7 +985,7 @@ def check_rust_bazel_application_contract() -> int:
                     f"{closure_path.relative_to(ROOT)}: consumer-relative action is not release-vendored: {reference}"
                 )
                 continue
-            prefix = "tinyland-inc/ci-templates/.github/actions/"
+            prefix = "xoxd-ai/ci-templates/.github/actions/"
             if reference.startswith(prefix):
                 action_ref = reference.removeprefix(prefix)
                 if "@" not in action_ref:
@@ -952,8 +1063,8 @@ def check_rust_bazel_application_contract() -> int:
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v2.14.0",
-        "rust-bazel-binary-custody@v2.14.0",
+        "rust-bazel-preflight@v5.1.1",
+        "rust-bazel-binary-custody@v5.1.1",
         "steps.bazelisk-custody.outputs.path",
         "needs: trust-gate",
         'default: "[]"',
@@ -962,8 +1073,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v2.14.0",
-        "cache-attachment-validate@v2.14.0",
+        "rust-bazel-contract@v5.1.1",
+        "cache-attachment-validate@v5.1.1",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",
@@ -1099,7 +1210,7 @@ def check_rust_bazel_application_contract() -> int:
         "does not claim a four-platform",
         "tinyland-infra",
         "same-repository",
-        "@v2.14.0",
+        "@v5.1.1",
         "github.ref_protected == true",
         "cache-first",
         "release publication remains a",
@@ -1150,7 +1261,7 @@ def check_rust_bazel_application_contract() -> int:
         )
         ok = False
     if re.search(
-        r"tinyland-inc/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
+        r"xoxd-ai/ci-templates/\.github/actions/[^@\s]+@v2(?:\s|$)", workflow
     ):
         print(
             f"{workflow_path.relative_to(ROOT)}: floating internal action reference",

@@ -3,8 +3,9 @@
 ci-templates `v5.2.0` is a proposed, held carrier of schema 3, first
 introduced in `v5.0.0`. Its source carries the qualified-result caller repair
 described below and a prospective default-off protected application publisher.
-Do not adopt the release until its matching compiled publisher contract is
-implemented and the immutable release exists. Schema 3 is an
+Do not adopt the release until the matching installed client and qualified
+runtime proof are established, exact-release registered validation passes,
+and the attended immutable release exists. Schema 3 is an
 incompatible revision of the GloriousFlywheel
 `ActionPlan/v4` interface.
 The reusable workflow remains the thin `spoke-ci-v4.yml` dispatcher; the
@@ -68,10 +69,13 @@ digest stays in-process, never a caller/workflow input or manually copied
 operand. No workflow-side build, caller-provided layout, or second action is a
 substitute (TIN-4257; GFTB meta #62 Amendment 6).
 
-The current GF command still requires caller-supplied runtime-base layout and
-does not implement this prospective call. The release stays held until the
-matching compiled remote producer and exact-source proof exist. Removing the
-old input does not establish compatibility, activation, or runtime evidence.
+GF #1837, merged as `cb893dd68399e5778f32cfa5322729eac60df5b9`, implements
+this CLI through `PublishInstalledNativeApplication` without a caller-supplied
+runtime-base layout. This is source compatibility only. Keep the release
+Draft/no-auto pending the matching installed client, qualified same-invocation
+exact-source publication proof, exact-release registered remote `just check`
+and dependency-closure proof, and the attended immutable release transaction.
+The source merge does not establish activation or runtime evidence.
 
 After those release gates close, the protected caller must grant the same
 closed permission set and keep its action and materialization bounds in
