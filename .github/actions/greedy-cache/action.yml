@@ -35,7 +35,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v3.2.2
+    - uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v3.3.0
       with:
         attic-server: ${{ inputs.attic-server }}
         attic-cache: ${{ inputs.attic-cache }}

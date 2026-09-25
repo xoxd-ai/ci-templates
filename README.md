@@ -430,6 +430,10 @@ jobs:
 - **This is routing, not trust.** It does not add the fork/pre-scheduling trust
   gate; a private repo that needs a fail-closed group+capability contract still
   uses `spoke-ci-restricted.yml`, where `runner_group` is *required*.
+- **`playwright_timeout_minutes` (default 30)** is the playwright job's
+  `timeout-minutes`, on both the shared lane and the restricted variant. A spoke
+  whose end-to-end suite runs long on the kvm class raises it (glorious.build
+  sets 60); the default renders byte-identically to the fixed cap it replaces.
 - YAML cannot express a conditional mapping, so the workflow composes the
   mapping at runtime via `fromJSON(format(...))`. `just runner-group-contract-check`
   renders both paths over a scenario grid and fails if the default path ever

@@ -16,7 +16,7 @@ from collections import Counter
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v3.2.2"
+RUST_BAZEL_RELEASE = "v3.3.0"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -575,7 +575,7 @@ def check_cache_backed_optin_contract() -> int:
         '"npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"',
         # TIN-2109: manifest validation in the cache-backed lane (fail-closed)
         "Validate repo manifest (cache-backed lane)",
-        "repo-manifest-validate@v3.2.2",
+        "repo-manifest-validate@v3.3.0",
         # TIN-2109: expected mode is manifest-driven (enrollment.substrateMode)
         ".enrollment.substrateMode",
         "GF_BAZEL_SUBSTRATE_MODE=",
@@ -638,8 +638,8 @@ def check_cache_backed_optin_contract() -> int:
         # validator invocation. The explicit interpreter reaches the following
         # composite step through GITHUB_ENV; merely vendoring the provider action
         # without putting it in the job leaves consumers on the same exit-5 path.
-        provider_ref = f"{MANIFEST_JSONSCHEMA_ACTION_BASENAME}@v3.2.2"
-        validator_ref = "repo-manifest-validate@v3.2.2"
+        provider_ref = f"{MANIFEST_JSONSCHEMA_ACTION_BASENAME}@v3.3.0"
+        validator_ref = "repo-manifest-validate@v3.3.0"
         for caller_path in (
             ROOT / ".github/workflows/spoke-ci.yml",
             ROOT / ".github/workflows/spoke-ci-restricted.yml",
@@ -991,8 +991,8 @@ def check_rust_bazel_application_contract() -> int:
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v3.2.2",
-        "rust-bazel-binary-custody@v3.2.2",
+        "rust-bazel-preflight@v3.3.0",
+        "rust-bazel-binary-custody@v3.3.0",
         "steps.bazelisk-custody.outputs.path",
         "needs: trust-gate",
         'default: "[]"',
@@ -1001,8 +1001,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v3.2.2",
-        "cache-attachment-validate@v3.2.2",
+        "rust-bazel-contract@v3.3.0",
+        "cache-attachment-validate@v3.3.0",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",
@@ -1138,7 +1138,7 @@ def check_rust_bazel_application_contract() -> int:
         "does not claim a four-platform",
         "tinyland-infra",
         "same-repository",
-        "@v3.2.2",
+        "@v3.3.0",
         "github.ref_protected == true",
         "cache-first",
         "release publication remains a",
