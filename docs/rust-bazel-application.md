@@ -79,7 +79,7 @@ on:
 
 jobs:
   rust:
-    uses: xoxd-ai/ci-templates/.github/workflows/rust-bazel-application.yml@v3.2.2
+    uses: xoxd-ai/ci-templates/.github/workflows/rust-bazel-application.yml@v3.3.0
     with:
       enabled: true
       runner_group: tinyland-infra

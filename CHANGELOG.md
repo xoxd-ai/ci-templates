@@ -5,6 +5,8 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-25
+
 ### Added
 
 - **`playwright_timeout_minutes` spoke-ci input** (default 30) sets the

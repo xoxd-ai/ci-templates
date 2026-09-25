@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v3.2.2"
+IMMUTABLE_RELEASE = "v3.3.0"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -121,7 +121,8 @@ SPECS = {
     # with the same default, so every consumer that does not opt in renders the
     # same cap; the restricted variant declares and threads the identical input,
     # so it stays a strict subset and the structural comparison is unaffected.
-    legacy_sha256: "fdf17a9953abba9c0d20c69ccd03a27684fe9e1c2f4779b6feb822dd935cb7df",
+    # Re-recorded for v3.3.0's exact internal self-release ref advancement.
+    legacy_sha256: "fd2cef3791262d029ea6d75b0d1876dbad26bbb2cfc9985553a1b794b309bcf8",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
@@ -161,7 +162,8 @@ SPECS = {
     # routing its other two jobs already used. No input surface changes, so the
     # restricted variant stays a strict subset unchanged.
     # Re-recorded for v3.2.2's exact internal self-release ref advancement.
-    legacy_sha256: "ea9192088b52092495414e09c258eeb41aec0b3cb3a780ff87e3ca6e9ea5bcde",
+    # Re-recorded for v3.3.0's exact internal self-release ref advancement.
+    legacy_sha256: "e000e5d7f80eb2d19486053cddb9a70804ddf8e2f6f82116c4f7975dd427f4a4",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
