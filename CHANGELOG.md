@@ -26,6 +26,10 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Fixed
 
+- **TIN-4257 source-check portability.** The restricted closure, runs-on
+  linter and hosted-runner backstop scan exact UTF-8 source bytes independent
+  of the runner locale and fail on malformed input. Their immutable-closure
+  and runner-label predicates are unchanged.
 - **TIN-4257 source admission.** Remove GitHub branch-protection metadata from
   the two GF-I09 publisher-routing predicates under the September 8 Free-plan
   ruling and GF #1817. Canonical-main push and exact caller-workflow source
