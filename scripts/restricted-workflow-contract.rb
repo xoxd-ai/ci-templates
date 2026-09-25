@@ -771,7 +771,16 @@ def validate_restricted_dependency_closure
     errors << "restricted external action closure changed: expected #{expected_external.join(', ')}, got #{actual_external.join(', ')}"
   end
 
-  closure_text = visited.keys.map { |path| File.read(path) }.join("\n")
+  closure_sources = visited.keys.map do |path|
+    source = File.binread(path).force_encoding(Encoding::UTF_8)
+    next source if source.valid_encoding?
+
+    errors << "#{Pathname.new(path).relative_path_from(Pathname.new(ROOT))}: restricted closure source is not valid UTF-8"
+    nil
+  end
+  return errors if closure_sources.include?(nil)
+
+  closure_text = closure_sources.join("\n")
   %w[trufflehog/main scripts/install.sh raw.githubusercontent.com/xoxd-ai/ci-templates].each do |forbidden|
     errors << "restricted closure retains mutable network dependency #{forbidden}" if closure_text.include?(forbidden)
   end

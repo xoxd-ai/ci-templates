@@ -7,6 +7,12 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **TIN-4257 source-validation bootstrap.** Direct pushes to this repository
+  run the unchanged complete `just check` from the exact pushed source on the
+  shared self-hosted `tinyland-nix` class through the existing
+  `spoke-ci-v4.yml` file. Consumer calls retain their default route; this
+  source check does not execute a GF action, publish an application, or lift
+  the held v5.2.0 release.
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
   A pull request whose head repository owner is in the allowlist is admitted
@@ -17,6 +23,61 @@ Versioning: [SemVer 2.0](https://semver.org/).
   developers under TIN-4251 (operator ruling 2026-09-22). Unset, every
   non-opted consumer keeps the pre-existing admission behaviour; the v4
   contract check pins the empty default and the exact-match gate.
+
+### Fixed
+
+- **TIN-4257 source-check portability.** The restricted closure, runs-on
+  linter and hosted-runner backstop scan exact UTF-8 source bytes independent
+  of the runner locale and fail on malformed input. Their immutable-closure
+  and runner-label predicates are unchanged.
+- **TIN-4257 source admission.** Remove GitHub branch-protection metadata from
+  the two GF-I09 publisher-routing predicates under the September 8 Free-plan
+  ruling and GF #1817. Canonical-main push and exact caller-workflow source
+  remain required, alongside the compiled publisher's signed-source,
+  organization, OIDC and qualification checks. The prospective v5.2.0 release
+  remains held for its installed client and qualified same-invocation remote
+  runtime-base evidence.
+- **TIN-4257 publisher source compatibility.** Correct the stale caller-layout
+  claim: GF #1837 merged as `cb893dd68399e5778f32cfa5322729eac60df5b9`
+  and implements this CLI through `PublishInstalledNativeApplication` without
+  a caller-supplied runtime-base layout. Source compatibility does not release
+  Draft/no-auto, installed-client and exact-source runtime qualification,
+  registered exact-release validation, or attended immutable release holds.
+
+## [5.2.0] — 2026-09-04
+
+Proposed release; the matching publisher CLI source has merged, but the release
+remains Draft/no-auto pending the installed client, qualified same-invocation
+exact-source publication proof, registered exact-release validation and the
+attended immutable release transaction.
+
+### Added
+
+- **TIN-4257 GF-I09 application publisher.** Add a default-off
+  `spoke-ci-v4.yml` mode that replaces the ordinary push action with the
+  image-custodied `gf-action-client publish-application` transaction only for
+  a canonical-`main` push. Its job alone receives `packages: write`,
+  is serialized per source repository without cancellation, and requires
+  reviewed materialization bounds. The compiled publisher must obtain the
+  authenticated runtime base remotely from exact locked source, publish/sign
+  and verify it under the same identity, and retain its digest in-process.
+  The workflow does not produce or select a runtime base, parse qualified
+  output, construct OCI state, or carry a fallback.
+
+### Fixed
+
+- **TIN-4257 dispatch routing.** Opting into application publication no longer
+  skips the declared action on non-main pushes or other pushes outside the
+  complete canonical-main publisher gate. Same-repository PR execution and
+  default-off fork admission are unchanged; publication permissions are not
+  widened.
+
+### Removed
+
+- **TIN-4257 runtime-base authority correction.** Remove the caller-supplied
+  runtime-base digest input, environment projection, and CLI argument under
+  GFTB meta #62 Amendment 6. The existing input census and obsolete assertion
+  co-move; no workflow builder, caller layout, or second action replaces them.
 
 ## [5.1.1] - 2026-09-21
 

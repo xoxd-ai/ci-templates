@@ -156,10 +156,12 @@ STALE_INTERNAL_REF_FILES = {
 
 
 def check_v4_action_client_surface() -> bool:
-    """Assert the thin v4 workflow delegates execution to the compiled client.
+    """Assert v4 execution and opt-in publication stay compiled-client calls.
 
     This replaces the larger inline OCI/proxy assertion family. Retire it when
-    the typed workflow-effect contract directly enforces this boundary.
+    the typed workflow-effect contract directly enforces this boundary. The
+    TIN-4257 3b1d6284 self-source bootstrap assertions retire when native
+    ci-templates self-validation replaces this direct-push exception.
     """
 
     path = ROOT / ".github/workflows/spoke-ci-v4.yml"
@@ -172,6 +174,26 @@ def check_v4_action_client_surface() -> bool:
     failures: list[str] = []
 
     required = {
+        "  push:\n  workflow_call:": "source-only direct push validation beside reusable calls",
+        (
+            "        inputs.action_name\n"
+            "        && !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')"
+        ): "direct pushes in any repo excluded from the reusable action job",
+        "!startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')": "direct self-source runs excluded from consumer jobs",
+        (
+            "            github.event_name == 'push'\n"
+            "            && !(\n"
+            "              inputs.publish_application\n"
+            "              && github.ref == 'refs/heads/main'\n"
+            "              && github.workflow_sha == github.sha\n"
+            "            )"
+        ): "ordinary push dispatch outside exact publication eligibility",
+        (
+            "  application-publisher:\n"
+            "    if: ${{ !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') && inputs.publish_application && github.event_name == 'push' && "
+            "github.ref == 'refs/heads/main' && "
+            "github.workflow_sha == github.sha }}"
+        ): "opt-in canonical-main publication with exact caller-workflow source",
         "github.event_name == 'push'": "push-only admitted event",
         "github.event_name == 'pull_request'": "same-repository pull-request event",
         "github.event.pull_request.head.repo.full_name == github.repository": "same-repository pull-request admission",
@@ -184,6 +206,7 @@ def check_v4_action_client_surface() -> bool:
         "ref: ${{ env.SOURCE_SHA }}": "exact admitted source checkout",
         "ACTION_NAME: ${{ inputs.action_name }}": "caller-selected action identity",
         "/usr/local/bin/gf-action-client run": "compiled action client",
+        "/usr/local/bin/gf-action-client publish-application": "compiled application publisher",
         "--plan .github/lanes.json": "canonical action plan",
         '--action "$ACTION_NAME"': "one named action per invocation",
         '--source-sha "$SOURCE_SHA"': "source identity passed to the client",
@@ -191,6 +214,18 @@ def check_v4_action_client_surface() -> bool:
             '--result-dir "$RUNNER_TEMP/gf-action-result-'
             '${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}"'
         ): "job-unique qualified result directory",
+        "default: false": "default-off application publication",
+        "group: gf-i09-application-publisher-${{ github.repository }}": "repository-keyed publisher concurrency",
+        "cancel-in-progress: false": "non-cancelling publisher concurrency",
+        '--publication-output "$RUNNER_TEMP/gf-application-publication-': "private publisher receipt path",
+        (
+            "  source-self-check:\n"
+            "    if: ${{ github.repository == 'xoxd-ai/ci-templates' && github.event_name == 'push' && startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') }}"
+        ): "exact source-repository push-only bootstrap check",
+        "runs-on: tinyland-nix": "shared self-hosted source-validation class",
+        "ref: ${{ github.sha }}": "self-check exact pushed revision",
+        "persist-credentials: false": "checkout without retained GitHub credentials",
+        "nix develop --command just check": "unchanged complete repository check",
     }
     for snippet, claim in required.items():
         if snippet not in document:
@@ -198,12 +233,12 @@ def check_v4_action_client_surface() -> bool:
 
     if re.findall(r"^      ([a-z_][a-z0-9_]*):$", call_surface, re.MULTILINE) != [
         "action_name",
+        "publish_application",
+        "materialized_root_max_files",
+        "materialized_root_max_bytes",
         "fork_owner_allowlist",
     ]:
-        failures.append(
-            "workflow_call must expose only the checked-in action name and the "
-            "fork owner allowlist"
-        )
+        failures.append("workflow_call must expose only the action, conditional GF-I09 publication, and fork allowlist inputs")
     # TIN-4251 fork-pilot edge: the allowlist input is default-off. An absent or
     # non-empty default would admit forks for every non-opted consumer.
     if re.search(
@@ -212,14 +247,14 @@ def check_v4_action_client_surface() -> bool:
         re.MULTILINE,
     ) is None:
         failures.append("fork_owner_allowlist must default to the empty string")
-    if document.count("id-token: write") != 1:
-        failures.append("the thin dispatcher must carry exactly one OIDC permission")
+    if document.count("id-token: write") != 2 or document.count("packages: write") != 1:
+        failures.append("only the opt-in publisher may add package-write authority to the two OIDC jobs")
     if re.findall(
         r"^  ([a-z_][a-z0-9_-]*):$",
         document.partition("\njobs:\n")[2],
         re.MULTILINE,
-    ) != ["action-fabric"]:
-        failures.append("v4 action fabric must remain one thin job identity")
+    ) != ["action-fabric", "application-publisher", "source-self-check"]:
+        failures.append("v4 must contain only the action, protected publisher and source-bootstrap jobs")
 
     for forbidden in (
         "executionPool",
@@ -227,8 +262,8 @@ def check_v4_action_client_surface() -> bool:
         "GF_REAPI_",
         "BAZEL_REMOTE_",
         "gloriousflywheel-rbe-",
+        "@v4.0.0",
         "@v5.1.1",
-        "packages: write",
         "contents: write",
         "git push",
         "curl ",

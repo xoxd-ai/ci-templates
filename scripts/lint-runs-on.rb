@@ -439,16 +439,18 @@ end
 def scale_set_names(tfvars_path)
   return [] unless tfvars_path && File.file?(tfvars_path)
 
-  File.read(tfvars_path).scan(/runner_scale_set_name\s*=\s*"([^"]+)"/).flatten.uniq
+  source = File.binread(tfvars_path).force_encoding(Encoding::UTF_8)
+  abort "#{tfvars_path}: invalid UTF-8 scale-set source" unless source.valid_encoding?
+
+  source.scan(/runner_scale_set_name\s*=\s*"([^"]+)"/).flatten.uniq
 end
 
 # ── workflow walking ────────────────────────────────────────────────────────
 
-def runs_on_line(path, job_id)
-  lines = File.readlines(path)
+def runs_on_line(source, job_id)
   in_job = false
   job_re = /\A\s+#{Regexp.escape(job_id)}\s*:/
-  lines.each_with_index do |line, idx|
+  source.each_line.with_index do |line, idx|
     in_job = true if line.match?(job_re)
     return idx + 1 if in_job && line.match?(/\A\s+runs-on\s*:/)
   end
@@ -456,6 +458,11 @@ def runs_on_line(path, job_id)
 end
 
 def lint_file(path, opts)
+  source = File.binread(path).force_encoding(Encoding::UTF_8)
+  unless source.valid_encoding?
+    return [{ file: path, job: "(file)", raw: "", verdict: :fail, detail: "invalid UTF-8 workflow source", resolved: "", line: 1 }]
+  end
+
   doc = begin
     YAML.load_file(path, aliases: true)
   rescue ArgumentError
@@ -484,7 +491,7 @@ def lint_file(path, opts)
       end
     end
 
-    findings << result.merge(file: path, job: job_id, raw: raw, line: runs_on_line(path, job_id))
+    findings << result.merge(file: path, job: job_id, raw: raw, line: runs_on_line(source, job_id))
   end
   findings
 end

@@ -76,7 +76,10 @@ def scan(root)
   files = scan_files(root)
   files.each do |path|
     rel = path.sub("#{root}/", "")
-    File.readlines(path).each_with_index do |line, index|
+    source = File.binread(path).force_encoding(Encoding::UTF_8)
+    abort "#{rel}: invalid UTF-8 runner-label source" unless source.valid_encoding?
+
+    source.each_line.with_index do |line, index|
       hosted, third_party = classify_line(line)
       hosted.each { |label| failures << [rel, index + 1, label, line.strip] }
       third_party.each { |label| warnings << [rel, index + 1, label, line.strip] }

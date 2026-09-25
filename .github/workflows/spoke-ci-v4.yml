@@ -16,12 +16,32 @@ name: spoke-ci-v4
 # non-opted consumer byte-identical in behaviour.
 
 on:
+  push:
   workflow_call:
     inputs:
       action_name:
         description: Named action from the caller's checked-in .github/lanes.json.
         required: true
         type: string
+      publish_application:
+        description: Publish the qualified export on a canonical-main push.
+        required: false
+        default: false
+        type: boolean
+      materialized_root_max_files:
+        description: >-
+          Reviewed application-root file bound; required when
+          publish_application is true.
+        required: false
+        default: 0
+        type: number
+      materialized_root_max_bytes:
+        description: >-
+          Reviewed application-root byte bound; required when
+          publish_application is true.
+        required: false
+        default: 0
+        type: number
       fork_owner_allowlist:
         description: >-
           Comma-separated GitHub logins (no whitespace) whose forks may open
@@ -39,19 +59,34 @@ jobs:
     # Admission: every push; a pull request from the base repository; or a
     # pull request whose head repository owner login is in the caller's
     # comma-separated allowlist. The comma padding makes the match exact per
-    # entry (GitHub logins are case-insensitive, and so is contains()).
+    # entry (GitHub logins are case-insensitive, and so is contains()). The
+    # exact workflow_ref guard excludes only this file's direct self-CI run;
+    # the required action_name input also refuses direct pushes in forked
+    # copies, which have no workflow_call inputs. A reusable call, including
+    # one from this repository, keeps its caller.
     if: >-
       ${{
-        github.event_name == 'push'
-        || (
-          github.event_name == 'pull_request'
-          && (
-            github.event.pull_request.head.repo.full_name == github.repository
-            || (
-              inputs.fork_owner_allowlist != ''
-              && contains(
-                format(',{0},', inputs.fork_owner_allowlist),
-                format(',{0},', github.event.pull_request.head.repo.owner.login)
+        inputs.action_name
+        && !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@')
+        && (
+          (
+            github.event_name == 'push'
+            && !(
+              inputs.publish_application
+              && github.ref == 'refs/heads/main'
+              && github.workflow_sha == github.sha
+            )
+          )
+          || (
+            github.event_name == 'pull_request'
+            && (
+              github.event.pull_request.head.repo.full_name == github.repository
+              || (
+                inputs.fork_owner_allowlist != ''
+                && contains(
+                  format(',{0},', inputs.fork_owner_allowlist),
+                  format(',{0},', github.event.pull_request.head.repo.owner.login)
+                )
               )
             )
           )
@@ -84,3 +119,64 @@ jobs:
             --action "$ACTION_NAME" \
             --source-sha "$SOURCE_SHA" \
             --result-dir "$RUNNER_TEMP/gf-action-result-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}"
+
+  # CLI source matches GF #1837 (cb893dd68399e5778f32cfa5322729eac60df5b9),
+  # which uses PublishInstalledNativeApplication without a caller layout.
+  # Draft/no-auto remains: installed-client and qualified exact-source runtime
+  # proof, registered exact-release validation and attended release are required.
+  application-publisher:
+    if: ${{ !startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') && inputs.publish_application && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha }}
+    runs-on: gf-v4-dispatch
+    timeout-minutes: 45
+    concurrency:
+      group: gf-i09-application-publisher-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    env:
+      SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out exact canonical-main source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+
+      - name: Publish qualified application release
+        shell: bash
+        env:
+          ACTION_NAME: ${{ inputs.action_name }}
+          GITHUB_TOKEN: ${{ github.token }}
+          MATERIALIZED_ROOT_MAX_FILES: ${{ inputs.materialized_root_max_files }}
+          MATERIALIZED_ROOT_MAX_BYTES: ${{ inputs.materialized_root_max_bytes }}
+        run: |
+          set -euo pipefail
+          /usr/local/bin/gf-action-client publish-application \
+            --plan .github/lanes.json \
+            --action "$ACTION_NAME" \
+            --source-sha "$SOURCE_SHA" \
+            --result-dir "$RUNNER_TEMP/gf-action-result-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}" \
+            --publication-output "$RUNNER_TEMP/gf-application-publication-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}.json" \
+            --materialized-root-max-files "$MATERIALIZED_ROOT_MAX_FILES" \
+            --materialized-root-max-bytes "$MATERIALIZED_ROOT_MAX_BYTES"
+
+  # TIN-4257 3b1d6284: source-only self-check. github.workflow_ref
+  # identifies the caller in a reusable call, but this file on a direct push.
+  # This is the complete Justfile check, not GF execution or publication.
+  source-self-check:
+    if: ${{ github.repository == 'xoxd-ai/ci-templates' && github.event_name == 'push' && startsWith(github.workflow_ref, 'xoxd-ai/ci-templates/.github/workflows/spoke-ci-v4.yml@') }}
+    runs-on: tinyland-nix
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact source revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Check complete repository source contract
+        run: nix develop --command just check
