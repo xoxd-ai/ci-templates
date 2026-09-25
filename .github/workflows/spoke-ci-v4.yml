@@ -162,7 +162,7 @@ jobs:
             --materialized-root-max-files "$MATERIALIZED_ROOT_MAX_FILES" \
             --materialized-root-max-bytes "$MATERIALIZED_ROOT_MAX_BYTES"
 
-  # TIN-4257 3b1d6284: source-validation bootstrap only. github.workflow_ref
+  # TIN-4257 3b1d6284: source-only self-check. github.workflow_ref
   # identifies the caller in a reusable call, but this file on a direct push.
   # This is the complete Justfile check, not GF execution or publication.
   source-self-check:
