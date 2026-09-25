@@ -97,6 +97,16 @@ on:
           Runner-class label for the playwright job (playwright_enabled=true
           only). Same org-tenancy rationale as heavy_runner_class. Default
           preserves pre-v2.8.1 behavior byte-identically.
+      playwright_timeout_minutes:
+        type: number
+        default: 30
+        description: >-
+          The playwright job's timeout-minutes (playwright_enabled=true only).
+          Default 30 preserves pre-v3.3.0 behavior byte-identically. A spoke
+          whose end-to-end suite runs long on the kvm class raises it: at the
+          fixed cap, glorious.build's 25 to 30 minute suite was cancelled on
+          every run of the tinyland-nix-kvm class before its retries finished
+          (operator ruling CI3t, 2026-09-25, TIN-4435).
       runner_group:
         type: string
         default: ""
@@ -483,7 +493,7 @@ jobs:
       ${{ inputs.runner_group != '' &&
       fromJSON(format('{{"group":{0},"labels":{1}}}', toJSON(inputs.runner_group), toJSON(inputs.kvm_runner_class)))
       || inputs.kvm_runner_class }}
-    timeout-minutes: 30
+    timeout-minutes: ${{ inputs.playwright_timeout_minutes }}
     steps:
       - uses: actions/checkout@v6
       - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v3.2.2

@@ -115,7 +115,13 @@ SPECS = {
     # exposes only the lockfile-pinned JSON Schema interpreter through
     # REPO_MANIFEST_PYTHON; workflow inputs, runner routing, and the remaining
     # default execution shape stay unchanged.
-    legacy_sha256: "5a6d4d90acf2a19a959eb5e311291b8a0d25eff7926b9253161f86e3f6194964",
+    # Re-recorded for CI3t (optional `playwright_timeout_minutes` input, default
+    # 30). Previously 5a6d4d90… (v3.2.2). The playwright job's fixed
+    # `timeout-minutes: 30` becomes `${{ inputs.playwright_timeout_minutes }}`
+    # with the same default, so every consumer that does not opt in renders the
+    # same cap; the restricted variant declares and threads the identical input,
+    # so it stays a strict subset and the structural comparison is unaffected.
+    legacy_sha256: "fdf17a9953abba9c0d20c69ccd03a27684fe9e1c2f4779b6feb822dd935cb7df",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
