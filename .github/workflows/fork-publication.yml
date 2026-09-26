@@ -1,0 +1,45 @@
+name: trusted-fork-publication
+# TIN-2611 de0b0a62 Q-3: the adopter's protected-main workflow_dispatch
+# caller supplies only OOC's immutable intent selector. The installed GF
+# client authenticates T and H, selects the bounded recipe, executes through
+# the fabric, and publishes the independently verifiable release.
+
+on:
+  workflow_call:
+    inputs:
+      intent_uid:
+        description: OOC's immutable ForkPublicationIntent UID.
+        required: true
+        type: string
+      nonce:
+        description: OOC's one-use dispatch correlation nonce.
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: gf-v4-dispatch
+    timeout-minutes: 45
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - name: Publish the exact claimed fork application
+        shell: bash
+        env:
+          INTENT_UID: ${{ inputs.intent_uid }}
+          DISPATCH_NONCE: ${{ inputs.nonce }}
+          CALLER_WORKFLOW_SHA: ${{ github.workflow_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ||
+                "$GITHUB_REF" != refs/heads/main ||
+                "$CALLER_WORKFLOW_SHA" != "$GITHUB_SHA" ]]; then
+            echo 'Trusted fork publication requires the exact protected-main workflow_dispatch caller' >&2
+            exit 1
+          fi
+          /usr/local/bin/gf-action-client publish-fork-application \
+            --intent-uid "$INTENT_UID" \
+            --nonce "$DISPATCH_NONCE" \
+            --publication-output "$RUNNER_TEMP/gf-fork-publication-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
