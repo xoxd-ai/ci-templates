@@ -7,6 +7,12 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **TIN-4257 native pair carrier.** Add `gf-native-pair-v1.yml` for an
+  adopter's canonical-main push. It passes committed pair intent to the
+  image-custodied client on the adopter's thin self-hosted dispatch edge and
+  grants only the publication job's OIDC and package permissions. Adoption
+  requires a future exact immutable release and qualified provider execution.
+
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
   A pull request whose head repository owner is in the allowlist is admitted

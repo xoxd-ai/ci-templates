@@ -1,0 +1,72 @@
+name: gf-native-pair-v1
+
+# TIN-4257 Q-55: the adopter's canonical main supplies committed pair intent.
+# The image-custodied client authenticates, dispatches and publishes the pair.
+on:
+  workflow_call:
+    inputs:
+      policy:
+        description: Canonical relative path to committed provider policy.
+        required: true
+        type: string
+      gf_source_sha:
+        description: Exact GloriousFlywheel commit pinned by the caller's flake.lock.
+        required: true
+        type: string
+      registry_prefix:
+        description: Bare adopter-owned registry prefix.
+        required: true
+        type: string
+      provider_slug:
+        description: Provider slug for the publication receipt.
+        required: true
+        type: string
+      cell_target:
+        description: Root-flake installable for the native cell image.
+        required: true
+        type: string
+      worker_target:
+        description: Root-flake installable for the native worker image.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  publish-pair:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha }}
+    runs-on: gf-v4-dispatch
+    timeout-minutes: 60
+    concurrency:
+      group: gf-native-pair-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out exact canonical main source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Publish fabric-built native pair
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          POLICY: ${{ inputs.policy }}
+          GF_SOURCE_SHA: ${{ inputs.gf_source_sha }}
+          REGISTRY_PREFIX: ${{ inputs.registry_prefix }}
+          PROVIDER_SLUG: ${{ inputs.provider_slug }}
+          CELL_TARGET: ${{ inputs.cell_target }}
+          WORKER_TARGET: ${{ inputs.worker_target }}
+        run: |
+          set -euo pipefail
+          /usr/local/bin/gf-action-client publish-native-pair \
+            --policy "$POLICY" \
+            --gf-source-sha "$GF_SOURCE_SHA" \
+            --registry-prefix "$REGISTRY_PREFIX" \
+            --provider-slug "$PROVIDER_SLUG" \
+            --cell-target "$CELL_TARGET" \
+            --worker-target "$WORKER_TARGET" \
+            --publication-output "$RUNNER_TEMP/gf-native-pair-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
