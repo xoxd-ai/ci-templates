@@ -7,6 +7,13 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **TIN-2611 trusted fork publication carrier.** A separately pinned reusable
+  workflow accepts only OOC's intent UID and dispatch nonce from an adopter's
+  protected-main `workflow_dispatch` caller. One self-hosted `gf-v4-dispatch`
+  job invokes the image-custodied fork publisher with OIDC and package-write
+  permissions. It checks out no fork source and receives no caller Secret,
+  head SHA, ActionPlan, endpoint, or recipe. This source candidate grants no
+  released pin, dispatch, remote execution, publication, or PRE acceptance.
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
   A pull request whose head repository owner is in the allowlist is admitted
