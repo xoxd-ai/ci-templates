@@ -2,6 +2,13 @@ name: gf-native-pair-v1
 
 # TIN-4257 Q-55: the adopter's canonical main supplies committed pair intent.
 # The image-custodied client authenticates, dispatches and publishes the pair.
+#
+# GF admits this publication identity only when the OIDC job_workflow_ref is
+# exactly xoxd-ai/ci-templates/.github/workflows/gf-native-pair-v1.yml@<40-hex>
+# (gf-action-client nativePairCarrierWorkflowRef). Callers therefore pin this
+# workflow by full commit SHA, never by a release tag; the tag only names the
+# reviewed release whose commit that SHA is. The Environment claim must be
+# empty, so neither this job nor its caller may declare an environment.
 on:
   workflow_call:
     inputs:
@@ -38,8 +45,12 @@ permissions:
 jobs:
   publish-pair:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.workflow_sha == github.sha }}
+    # The adopter's thin self-hosted dispatch edge; the pair is built by the
+    # provider's fabric, never on this runner.
     runs-on: gf-v4-dispatch
-    timeout-minutes: 60
+    # The client bounds its own publication transaction to one hour; this
+    # margin lets it, not the runner, report expiry.
+    timeout-minutes: 75
     concurrency:
       group: gf-native-pair-${{ github.repository }}
       cancel-in-progress: false

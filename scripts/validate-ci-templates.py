@@ -248,8 +248,130 @@ def check_v4_action_client_surface() -> bool:
     print("v4 workflow is a thin compiled-client dispatcher")
     return True
 
+
+# GloriousFlywheel services/gf-reapi-cell/internal/actionclient/
+# native_pair_publisher.go admits native pair publication only when the OIDC
+# job_workflow_ref is exactly this path in this repository at a 40-hex SHA
+# (nativePairCarrierWorkflowRef; oidcadmission.evaluateNativePairPublication).
+# Renaming or moving the file silently breaks every adopter's publication.
+NATIVE_PAIR_CARRIER_PATH = ".github/workflows/gf-native-pair-v1.yml"
+NATIVE_PAIR_CARRIER_INPUTS = [
+    "policy",
+    "gf_source_sha",
+    "registry_prefix",
+    "provider_slug",
+    "cell_target",
+    "worker_target",
+]
+# publish-native-pair holds its own one-hour transaction deadline. The job
+# timeout must exceed it so the client, not the runner, reports expiry.
+NATIVE_PAIR_CLIENT_DEADLINE_MINUTES = 60
+
+
+def check_native_pair_carrier_surface() -> bool:
+    """Assert the TIN-4257 native pair carrier matches GF's admission law.
+
+    The cell admits the publication identity only for a canonical-main push on
+    a self-hosted runner with an empty Environment claim, dispatched through
+    this exact reusable workflow path, and the client needs exactly the flags
+    below. Retire with the typed workflow-effect contract.
+    """
+
+    path = ROOT / NATIVE_PAIR_CARRIER_PATH
+    if not path.is_file():
+        print(f"{NATIVE_PAIR_CARRIER_PATH}: missing native pair carrier workflow", file=sys.stderr)
+        return False
+
+    document = path.read_text(encoding="utf-8")
+    call_surface = document.split("\npermissions:\n", maxsplit=1)[0]
+    jobs_surface = document.partition("\njobs:\n")[2]
+    failures: list[str] = []
+
+    if re.findall(r"^      ([a-z_][a-z0-9_]*):$", call_surface, re.MULTILINE) != NATIVE_PAIR_CARRIER_INPUTS:
+        failures.append(
+            "workflow_call must expose exactly the publish-native-pair intent inputs: "
+            + ", ".join(NATIVE_PAIR_CARRIER_INPUTS)
+        )
+    if "\non:\n  workflow_call:\n" not in document or re.search(r"^  (push|pull_request|workflow_dispatch):", call_surface, re.MULTILINE):
+        failures.append("the carrier must be reachable only through workflow_call")
+
+    permissions = document.partition("\npermissions:\n")[2].partition("\n\n")[0]
+    if sorted(line.strip() for line in permissions.splitlines()) != [
+        "contents: read",
+        "id-token: write",
+        "packages: write",
+    ]:
+        failures.append("permissions must be exactly contents: read, id-token: write, packages: write")
+    if document.count("id-token: write") != 1 or document.count("packages: write") != 1:
+        failures.append("the carrier must declare its OIDC and package permissions exactly once")
+
+    if re.findall(r"^  ([a-z_][a-z0-9_-]*):$", jobs_surface, re.MULTILINE) != ["publish-pair"]:
+        failures.append("the carrier must remain one publish-pair job")
+    if re.findall(r"^    runs-on: (.+)$", jobs_surface, re.MULTILINE) != ["gf-v4-dispatch"]:
+        failures.append("the carrier job must run only on the thin gf-v4-dispatch edge")
+    timeout = re.findall(r"^    timeout-minutes: ([0-9]+)$", jobs_surface, re.MULTILINE)
+    if len(timeout) != 1 or int(timeout[0]) <= NATIVE_PAIR_CLIENT_DEADLINE_MINUTES:
+        failures.append(
+            "timeout-minutes must exceed the client's own "
+            f"{NATIVE_PAIR_CLIENT_DEADLINE_MINUTES}-minute publication deadline"
+        )
+
+    required = {
+        "github.event_name == 'push'": "push-only admission",
+        "github.ref == 'refs/heads/main'": "canonical-main admission",
+        "github.workflow_sha == github.sha": "caller workflow pinned to the pushed source",
+        "ref: ${{ github.sha }}": "exact pushed source checkout",
+        "persist-credentials: false": "no persisted checkout credential",
+        "GITHUB_TOKEN: ${{ github.token }}": "job token for the ghcr.io publication",
+        "cancel-in-progress: false": "no cancellation of an in-flight publication",
+        "/usr/local/bin/gf-action-client publish-native-pair": "compiled image-custodied client",
+        '--policy "$POLICY"': "committed policy path",
+        '--gf-source-sha "$GF_SOURCE_SHA"': "locked GF source",
+        '--registry-prefix "$REGISTRY_PREFIX"': "adopter registry prefix",
+        '--provider-slug "$PROVIDER_SLUG"': "provider slug",
+        '--cell-target "$CELL_TARGET"': "cell installable",
+        '--worker-target "$WORKER_TARGET"': "worker installable",
+        (
+            '--publication-output "$RUNNER_TEMP/gf-native-pair-'
+            '${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"'
+        ): "attempt-unique receipt outside the checkout",
+        "if-no-files-found: error": "the receipt artifact is mandatory",
+    }
+    for snippet, claim in required.items():
+        if snippet not in document:
+            failures.append(f"missing {claim}")
+
+    for reference in re.findall(r"^\s*uses:\s*(\S+)", jobs_surface, re.MULTILINE):
+        if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(/[^@]*)?@[0-9a-f]{40}", reference) is None:
+            failures.append(f"action is not pinned by a full commit SHA: {reference}")
+
+    for forbidden in (
+        # A populated Environment claim is refused by the admission predicate.
+        "environment:",
+        "tinyland-nix",
+        "contents: write",
+        "pull_request",
+        "workflow_dispatch",
+        "nix build",
+        "nix develop",
+        "bazel ",
+        "curl ",
+        "git push",
+        "fallback",
+    ):
+        if forbidden in document:
+            failures.append(f"native pair carrier contains forbidden surface: {forbidden}")
+
+    if failures:
+        for failure in failures:
+            print(f"{NATIVE_PAIR_CARRIER_PATH}: {failure}", file=sys.stderr)
+        return False
+    print("native pair carrier matches the GF admission and client contract")
+    return True
+
 def check_internal_refs() -> int:
     ok = check_v4_action_client_surface()
+    ok = check_native_pair_carrier_surface() and ok
     action_pattern = re.compile(
         r"xoxd-ai/ci-templates/\.github/actions/([^@\s]+)@([^\s#]+)"
     )

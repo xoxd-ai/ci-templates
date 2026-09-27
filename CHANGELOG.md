@@ -11,8 +11,15 @@ Versioning: [SemVer 2.0](https://semver.org/).
   adopter's canonical-main push. It passes committed pair intent to the
   image-custodied client on the adopter's thin self-hosted dispatch edge and
   retains the exact compiled publication receipt for independent review. The
-  job grants only the publication job's OIDC and package permissions. Adoption
-  requires a future exact immutable release and qualified provider execution.
+  job grants only the publication job's OIDC and package permissions. GF
+  admits the publication only when `job_workflow_ref` is this exact path at a
+  full commit SHA, so callers pin the workflow by that SHA (the release tag
+  names which commit), and neither side may declare an environment. The job
+  timeout (75 minutes) exceeds the client's own one-hour transaction deadline.
+  `internal-refs` now also pins the carrier's path, inputs, permissions, thin
+  `gf-v4-dispatch` routing, client flags and SHA-pinned actions against the GF
+  admission predicate. Adoption requires a future exact immutable release and
+  qualified provider execution.
 
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
