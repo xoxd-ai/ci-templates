@@ -70,3 +70,11 @@ jobs:
             --cell-target "$CELL_TARGET" \
             --worker-target "$WORKER_TARGET" \
             --publication-output "$RUNNER_TEMP/gf-native-pair-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+
+      - name: Retain exact native pair publication receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gf-native-pair-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gf-native-pair-${{ github.run_id }}-${{ github.run_attempt }}.json
+          if-no-files-found: error
+          retention-days: 7
