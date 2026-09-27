@@ -7,6 +7,22 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **TIN-4257 native pair carrier.** Add `gf-native-pair-v1.yml` for an
+  adopter's canonical-main push. It passes committed pair intent to the
+  image-custodied client on the adopter's thin self-hosted dispatch edge and
+  retains the exact compiled publication receipt for independent review. The
+  job grants only the publication job's OIDC and package permissions. GF
+  admits the publication only when `job_workflow_ref` is this exact path at a
+  full commit SHA, so callers pin the workflow by that SHA (the release tag
+  names which commit), and neither side may declare an environment. The job
+  timeout (80 minutes) covers the client's own Q-74 transaction deadline
+  (2 x the 1800 s operation deadline + 600 s = 4200 s) plus setup and receipt
+  upload; `internal-refs` bounds it to 75..90 minutes.
+  `internal-refs` now also pins the carrier's path, inputs, permissions, thin
+  `gf-v4-dispatch` routing, client flags and SHA-pinned actions against the GF
+  admission predicate. Adoption requires a future exact immutable release and
+  qualified provider execution.
+
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
   A pull request whose head repository owner is in the allowlist is admitted
