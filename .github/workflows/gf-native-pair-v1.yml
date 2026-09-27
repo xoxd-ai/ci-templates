@@ -48,9 +48,11 @@ jobs:
     # The adopter's thin self-hosted dispatch edge; the pair is built by the
     # provider's fabric, never on this runner.
     runs-on: gf-v4-dispatch
-    # The client bounds its own publication transaction to one hour; this
-    # margin lets it, not the runner, report expiry.
-    timeout-minutes: 75
+    # Q-74: the client derives its own transaction deadline as 2 x the bound
+    # 1800 s operation deadline + 600 s = 4200 s (70 min). This job timeout
+    # covers that plus runner setup and receipt upload, so the client, not
+    # the runner, reports expiry.
+    timeout-minutes: 80
     concurrency:
       group: gf-native-pair-${{ github.repository }}
       cancel-in-progress: false

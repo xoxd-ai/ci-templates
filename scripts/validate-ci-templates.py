@@ -263,9 +263,18 @@ NATIVE_PAIR_CARRIER_INPUTS = [
     "cell_target",
     "worker_target",
 ]
-# publish-native-pair holds its own one-hour transaction deadline. The job
-# timeout must exceed it so the client, not the runner, reports expiry.
-NATIVE_PAIR_CLIENT_DEADLINE_MINUTES = 60
+# Q-74 (TIN-2611, 2026-09-27): publish-native-pair derives its own transaction
+# deadline as 2 x the bound per-operation deadline + 600 s (GF actionclient
+# NativePairTransactionDeadline; floor 3600 s, ceiling 7200 s refused). The
+# carrier passes no --operation-deadline-seconds, so the client binds its
+# 1800 s default. The job timeout must cover that deadline plus a setup and
+# receipt-upload margin so the client, not the runner, reports expiry, and is
+# bounded above so a stuck job cannot hold the dispatch edge indefinitely.
+NATIVE_PAIR_OPERATION_DEADLINE_SECONDS = 1800
+NATIVE_PAIR_CLIENT_DEADLINE_SECONDS = 2 * NATIVE_PAIR_OPERATION_DEADLINE_SECONDS + 600
+NATIVE_PAIR_CARRIER_MARGIN_MINUTES = 5
+NATIVE_PAIR_TIMEOUT_MIN_MINUTES = -(-NATIVE_PAIR_CLIENT_DEADLINE_SECONDS // 60) + NATIVE_PAIR_CARRIER_MARGIN_MINUTES
+NATIVE_PAIR_TIMEOUT_MAX_MINUTES = 90
 
 
 def check_native_pair_carrier_surface() -> bool:
@@ -310,10 +319,13 @@ def check_native_pair_carrier_surface() -> bool:
     if re.findall(r"^    runs-on: (.+)$", jobs_surface, re.MULTILINE) != ["gf-v4-dispatch"]:
         failures.append("the carrier job must run only on the thin gf-v4-dispatch edge")
     timeout = re.findall(r"^    timeout-minutes: ([0-9]+)$", jobs_surface, re.MULTILINE)
-    if len(timeout) != 1 or int(timeout[0]) <= NATIVE_PAIR_CLIENT_DEADLINE_MINUTES:
+    if len(timeout) != 1 or not (
+        NATIVE_PAIR_TIMEOUT_MIN_MINUTES <= int(timeout[0]) <= NATIVE_PAIR_TIMEOUT_MAX_MINUTES
+    ):
         failures.append(
-            "timeout-minutes must exceed the client's own "
-            f"{NATIVE_PAIR_CLIENT_DEADLINE_MINUTES}-minute publication deadline"
+            "timeout-minutes must be between "
+            f"{NATIVE_PAIR_TIMEOUT_MIN_MINUTES} and {NATIVE_PAIR_TIMEOUT_MAX_MINUTES} to cover the client's own "
+            f"{NATIVE_PAIR_CLIENT_DEADLINE_SECONDS} s Q-74 transaction deadline"
         )
 
     required = {

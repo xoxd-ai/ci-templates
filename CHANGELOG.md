@@ -15,7 +15,9 @@ Versioning: [SemVer 2.0](https://semver.org/).
   admits the publication only when `job_workflow_ref` is this exact path at a
   full commit SHA, so callers pin the workflow by that SHA (the release tag
   names which commit), and neither side may declare an environment. The job
-  timeout (75 minutes) exceeds the client's own one-hour transaction deadline.
+  timeout (80 minutes) covers the client's own Q-74 transaction deadline
+  (2 x the 1800 s operation deadline + 600 s = 4200 s) plus setup and receipt
+  upload; `internal-refs` bounds it to 75..90 minutes.
   `internal-refs` now also pins the carrier's path, inputs, permissions, thin
   `gf-v4-dispatch` routing, client flags and SHA-pinned actions against the GF
   admission predicate. Adoption requires a future exact immutable release and
