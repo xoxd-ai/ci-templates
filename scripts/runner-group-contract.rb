@@ -28,6 +28,11 @@
 # to make a check pass — a diff here means a routing change that needs its own
 # review.
 #
+# TIN-2611 addition (not a re-record): the `all-required` aggregate gate joins
+# the job set on the same base capability class as secrets-scan, in the same
+# default-off `runner_group` form. The seven existing baseline rows are
+# unchanged; the job set is eight.
+#
 # The evaluator implements the slice of the GitHub Actions expression language
 # these runs-on values use: `!=`, `&&`, `||` with GitHub's operand-returning
 # short circuit and falsiness set (null / false / 0 / ''), plus fromJSON,
@@ -57,13 +62,14 @@ LEGACY_RUNS_ON = {
   "flywheel-test" => "${{ inputs.runner_labels_json != '' && fromJSON(inputs.runner_labels_json) || matrix.lane.runner_class || inputs.default_runner_class }}",
   "bazel-graph" => "${{ inputs.heavy_runner_class }}",
   "playwright" => "${{ inputs.kvm_runner_class }}",
+  "all-required" => "${{ inputs.default_runner_class }}",
 }.freeze
 
 # Derived from the baseline, never hardcoded: a job whose runs-on is a plain
 # literal must keep exactly that literal and must never gain a group mapping; a
 # job that routes through a runner-class expression MUST gain one when
-# runner_group is set. After TIN-3914 the literal class is EMPTY — all seven
-# jobs route through a runner-class input — so the literal branch is kept
+# runner_group is set. After TIN-3914 the literal class is EMPTY — every job
+# routes through a runner-class input — so the literal branch is kept
 # executable by a synthetic negative oracle in the self-test rather than by the
 # live workflow. Derivation is the point: a future job added with a literal
 # runs-on is covered without editing this logic.

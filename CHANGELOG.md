@@ -7,6 +7,26 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub
+  reports a job skipped by an unmet `needs:` as a neutral check that
+  satisfies a required status check of the same name. A failed
+  `secrets-scan` skipped `bazel-graph`, `flywheel-build`, `flywheel-test`,
+  and `playwright`, and a ruleset requiring those names could read the
+  skips as passes. The new job runs under `always()`, needs every other
+  job, and fails unless each one succeeded. The only skip it accepts is
+  `playwright` when `playwright_enabled` is false. It routes through
+  `default_runner_class` with the same default-off `runner_group` form as
+  `secrets-scan`. No existing job changes. Every consumer gains one new
+  check context and one short job per run. This is an AGENTS.md rule 2
+  exception that needs a ruling: a default-off input would bring the hole
+  back, because a skipped gate is itself a passing required check.
+  Consumers should switch their ruleset's required contexts to
+  `<caller job> / all-required`. New `just required-gate-contract-check`
+  and `-selftest` prove the gate's shape and execute its verdict over a
+  result grid. The restricted contract re-records the legacy digest and
+  treats the gate as a reviewed legacy-only job. `spoke-ci-restricted.yml`
+  is unchanged, because it forbids status functions after its trust gate.
+
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional
   `fork_owner_allowlist` input (comma-separated GitHub logins, default empty).
   A pull request whose head repository owner is in the allowlist is admitted

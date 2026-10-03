@@ -9,7 +9,7 @@ _default:
     @just --list --unsorted
 
 # Run all repository-local validation.
-check: yaml-parse json-parse vendored-schema-provenance-check repo-manifest-validate manifest-validate-selftest internal-refs-check js-bazel-runner-contract-check rust-bazel-application-contract-check flywheel-reapi-proof-contract-check restricted-workflow-contract-check runner-group-contract-selftest runner-group-contract-check repo-role-census-contract-selftest repo-role-census-contract-check endpoint-free-check ci-cached-endpoint-free-check cache-backed-optin-contract-check cache-contract-selftest secrets-scan-dir lint-runs-on-selftest lint-runs-on-check no-hosted-runners-selftest no-hosted-runners-check
+check: yaml-parse json-parse vendored-schema-provenance-check repo-manifest-validate manifest-validate-selftest internal-refs-check js-bazel-runner-contract-check rust-bazel-application-contract-check flywheel-reapi-proof-contract-check restricted-workflow-contract-check runner-group-contract-selftest runner-group-contract-check required-gate-contract-selftest required-gate-contract-check repo-role-census-contract-selftest repo-role-census-contract-check endpoint-free-check ci-cached-endpoint-free-check cache-backed-optin-contract-check cache-contract-selftest secrets-scan-dir lint-runs-on-selftest lint-runs-on-check no-hosted-runners-selftest no-hosted-runners-check
     @echo "ci-templates checks passed."
 
 # Parse all GitHub workflow/action YAML with Ruby's stdlib YAML parser.
@@ -92,7 +92,7 @@ restricted-workflow-contract-check:
 
 # Prove spoke-ci's optional runner_group input (TIN-3902) is default-off: with
 # it unset every rendered runs-on is byte-for-byte the pinned label-only
-# baseline; with it set all seven jobs render GitHub's {group, labels} mapping
+# baseline; with it set every job renders GitHub's {group, labels} mapping
 # with the same labels they resolve today. TIN-3914 retired the hosted-job
 # class, so the never-group-routed literal class is now empty and its rule is
 # kept executable by a synthetic-baseline oracle in the self-test.
@@ -103,6 +103,18 @@ runner-group-contract-check:
 # group mapping, group leaking into a hosted job, dropped/rerouted labels).
 runner-group-contract-selftest:
     cd {{ root }} && ruby scripts/runner-group-contract.rb --self-test
+
+# Prove spoke-ci's `all-required` aggregate gate (TIN-2611) is fail-closed: it
+# runs under always(), needs every other job, and its own verdict script
+# (executed over a result grid) passes only when every upstream job succeeded,
+# with playwright's skip accepted only when playwright_enabled is false.
+required-gate-contract-check:
+    cd {{ root }} && ruby scripts/required-gate-contract.rb
+
+# Prove that checker rejects its negative oracles (!cancelled() condition, a
+# job left out of needs, skips read as success, an always-pass verdict).
+required-gate-contract-selftest:
+    cd {{ root }} && ruby scripts/required-gate-contract.rb --self-test
 
 # Prove spoke-ci's optional allowed_repo_roles input (TIN-3815) is default-off
 # and reaches EVERY census site. The bug it fixes was two independently

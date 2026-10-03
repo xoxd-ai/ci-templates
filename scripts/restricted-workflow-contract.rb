@@ -107,7 +107,20 @@ SPECS = {
     # allowlists, not a wrong value. The restricted variant declares the same
     # input and threads the same two sites, so it stays a strict subset and
     # `validate_restricted`'s structural comparison is unaffected.
-    legacy_sha256: "e58f86b9773c56858f325014873bcffa5703e9cfe7ba1db47e352330c93efa1a",
+    # Re-recorded for TIN-2611 (fail-closed `all-required` aggregate gate).
+    # Previously e58f86b9… (TIN-3815). The change is one appended job; no
+    # existing job's bytes move. GitHub reports a job skipped by an unmet
+    # `needs:` as a passing required check, so the gate runs under
+    # `always()` and fails unless every upstream job succeeded. That job
+    # is the reviewed legacy-only delta named in `legacy_only_jobs` below,
+    # and `just required-gate-contract-check` proves its shape and verdict.
+    legacy_sha256: "cd9a1e67d0e49e8ceb2b2be2759f56dae366eb3cb4f2e9b4bf46c451885dc496",
+    # Jobs present only in the legacy workflow, stripped from the legacy copy
+    # before the structural compare. The restricted variant forbids status
+    # functions such as `always()` downstream of its trust gate, so the
+    # aggregate gate does not carry over; bringing it there is a separate,
+    # reviewed change to this contract.
+    legacy_only_jobs: %w[all-required],
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",
@@ -512,6 +525,12 @@ end
 
 def validate_restricted(name, document, legacy, spec)
   errors = []
+  legacy = deep_copy(legacy)
+  spec.fetch(:legacy_only_jobs, []).each do |job_name|
+    errors << "#{name}: reviewed legacy-only job #{job_name} is missing from the legacy workflow" unless legacy["jobs"].key?(job_name)
+    errors << "#{name}: legacy-only job #{job_name} must not appear in the restricted workflow" if document["jobs"].is_a?(Hash) && document["jobs"].key?(job_name)
+    legacy["jobs"].delete(job_name)
+  end
   call = workflow_call(document)
   legacy_call = workflow_call(legacy)
   inputs = call.is_a?(Hash) && call["inputs"].is_a?(Hash) ? call["inputs"] : {}
