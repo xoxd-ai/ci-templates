@@ -28,17 +28,33 @@ The workflow does nothing unless `enabled: true`. An enabled caller supplies:
   application builds, unit tests, integration tests, and packages;
 - bounded lane controls: 5-180 timeout minutes and 1-4 concurrent lanes;
 - tracked regular `.bazelversion`, `MODULE.bazel`, `MODULE.bazel.lock`,
-  `Cargo.lock`, and `cargo-bazel-lock.json` files.
+  `Cargo.lock`, and `cargo-bazel-lock.json` files;
+- tracked regular `flake.nix` and `flake.lock` files whose dev shell named by
+  `nix_shell` (default `default`, the shell plain `nix develop` enters)
+  provides `bazelisk`.
 
-Each selected native runner must already provide Bash, Git, and Python 3. Its
-trusted operator overlay must also project `TINYLAND_CI_BAZELISK_BIN` as the
-canonical, unwrapped `${pkgs.bazelisk}/bin/bazelisk` path. The workflow
-validates this fact before caller checkout: it must resolve identically to a
-root-owned, non-group/world-writable, regular executable at
-`/nix/store/<32-character-hash>-bazelisk-<version>/bin/bazelisk`. A missing,
-mutable, symlinked, PATH-derived, or caller-selected binary fails closed. Tool
-installation and runner enrollment belong to the reproducible operator
-overlay, not this workflow.
+Each selected native runner must provide Bash, Git, Python 3, and Nix with
+flakes enabled. It supplies no build tools of its own. Since v6.0.0 (R70,
+TIN-4655) every Bazel invocation runs as
+`nix develop .#<nix_shell> --command ...` from the exact caller checkout with
+`--no-update-lock-file`, so the caller's tracked `flake.lock` is the only
+authority for the Bazelisk binary. Before the first Bazel command the workflow
+resolves `bazelisk` inside that shell and requires it to be a direct
+`$NIX_STORE/<32-character-hash>-<name>/bin/bazelisk` output on the shell's
+`PATH`. An impure `nix develop` appends the runner's `PATH` after the shell's
+own, so the workflow passes the runner's pre-shell `PATH` into the shell as
+`CI_RUNNER_PATH`. A Bazelisk the shell provides shadows any runner copy. If the
+shell provides none, the lane fails closed with
+`bazelisk is missing from the caller flake dev shell`, and a Bazelisk resolved
+from any `CI_RUNNER_PATH` entry is refused, even a Nix-store one such as a
+NixOS systemd `path` or github-runners `extraPackages` entry. A profile or
+system Bazelisk that is not a direct Nix-store output is refused too. A runner
+`PATH` entry that is the very same store directory as the shell's Bazelisk is
+also refused; drop the tool from the runner. The retired
+`rust-bazel-binary-custody` action and its runner-projected
+`TINYLAND_CI_BAZELISK_BIN` fact (which no runner set ever projected) were a
+fat-runner pattern and do not return. See
+[`migration-v5-to-v6.md`](migration-v5-to-v6.md).
 
 The pre-scheduling contract admits only the owner group's shared `nix` or
 `nix-heavy` capability and rejects hosted, bare `self-hosted`, cross-owner, and
@@ -79,10 +95,11 @@ on:
 
 jobs:
   rust:
-    uses: xoxd-ai/ci-templates/.github/workflows/rust-bazel-application.yml@v5.1.1
+    uses: xoxd-ai/ci-templates/.github/workflows/rust-bazel-application.yml@v6.0.0
     with:
       enabled: true
       runner_group: tinyland-infra
+      nix_shell: default
       platform_matrix_json: >-
         [
           {"name":"darwin-aarch64","os":"darwin","arch":"aarch64","runner_labels":["tinyland-nix","macOS","ARM64"],"bazel_platform":"//platforms:aarch64-apple-darwin"},
@@ -99,10 +116,12 @@ jobs:
 `v2.14.0` was the first immutable release containing this workflow and its
 internal actions; its `trust-gate` ran on a GitHub-hosted runner. `v3.0.0` is
 the first release in which every job — admission included — routes to a GF
-cache-fronted self-hosted runner (TIN-3914), so a consumer copying the example
-above should pin `@v3.0.0`, not `@v2.14.0`. The workflow's own internal
-composites stay pinned at their `@v2.14.0` exact refs, which is the immutability
-contract, not a consumer pin. Do not replace either with `@v2` or `@main`.
+cache-fronted self-hosted runner (TIN-3914). `v6.0.0` is the first release that
+takes Bazelisk from the caller flake dev shell instead of a runner-projected
+path, so a consumer copying the example above pins `@v6.0.0`. The workflow's
+own internal composites stay pinned at their `@v6.0.0` exact refs, which is the
+immutability contract, not a consumer pin. Do not replace either with `@v6` or
+`@main`.
 
 Those two entries are an interface example, not a claim that the labels are
 currently served. The workflow proves only platforms that a caller explicitly
@@ -149,21 +168,20 @@ system, or home rc files. The workflow then supplies its complete cache policy
 on the command line and always forces `--remote_executor=`. This is cache-first
 only: no input, secret, flag, or source path enables a remote executor.
 
-The tracked `.bazelversion` is validated before use. Before checkout, binary
-custody resolves the operator-projected raw Bazelisk path. Binary custody does
-not consult PATH for Bazelisk selection or execution. Every invocation then
-goes through a release-vendored driver that invokes that exact path, scrubs all
+The tracked `.bazelversion` is validated before use. Every invocation goes
+through a release-vendored driver that runs inside the caller flake dev shell,
+invokes that shell's resolved Nix-store Bazelisk, scrubs all
 Bazelisk configuration and crate-universe repin/generator variables, resets
 the exact version and wrapper
 prohibition, forces `--ignore_all_rc_files`, and uses run-scoped
 `HOME`/`BAZELISK_HOME`/`XDG_CACHE_HOME` roots under `RUNNER_TEMP`, and passes an
 exact job-scoped `--output_user_root`; a workspace `.bazeliskrc` is rejected.
 The explicit output root prevents Bazel from falling back to a runner user's
-ambient XDG cache and carrying action/output state across jobs. Caller
-wrappers, download redirects, runner-service overrides, user config, and
-cross-run Bazelisk cache poisoning therefore cannot replace the validated
-Bazel binary, trigger an implicit repin, substitute the cargo-bazel generator,
-or bypass the command-line contract.
+ambient XDG cache and carrying action/output state across jobs. Download
+redirects, runner-service overrides, user config, and cross-run Bazelisk cache
+poisoning therefore cannot replace the exact Bazel version, trigger an
+implicit repin, substitute the cargo-bazel generator, or bypass the
+command-line contract.
 
 Example runtime attachment:
 

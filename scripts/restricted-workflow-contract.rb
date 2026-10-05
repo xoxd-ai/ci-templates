@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v5.1.1"
+IMMUTABLE_RELEASE = "v6.0.0"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -107,7 +107,12 @@ SPECS = {
     # allowlists, not a wrong value. The restricted variant declares the same
     # input and threads the same two sites, so it stays a strict subset and
     # `validate_restricted`'s structural comparison is unaffected.
-    legacy_sha256: "e58f86b9773c56858f325014873bcffa5703e9cfe7ba1db47e352330c93efa1a",
+    #
+    # Re-recorded for v6.0.0 (R70 / TIN-4655 runner tool-custody retirement).
+    # Previously e58f86b9… (v5.1.1 organisation repoint). The only legacy byte
+    # change is every internal self-ref raised from @v5.1.1 to the exact
+    # @v6.0.0 release; no job, input, or step changed.
+    legacy_sha256: "9ac46a198db42387509a034580936bef7b56d9e9622f9a9d59c96e4df3d252d6",
     inputs: {
       "runner_group" => "tinyland-infra",
       "nix_runner_label" => "tinyland-nix",

@@ -114,7 +114,7 @@ outputs:
     description: Exact validated stable Bazel version from tracked .bazelversion.
     value: ${{ steps.validate.outputs.bazel_version }}
   bazelisk_driver:
-    description: Exact release-vendored Bazelisk environment scrubber path.
+    description: Exact release-vendored Bazelisk environment scrubber path; run it inside the caller flake dev shell, which supplies Bazelisk.
     value: ${{ steps.driver.outputs.path }}
   bazel_home:
     description: Fresh job-scoped private Bazelisk/HOME/XDG/Bazel-output root.

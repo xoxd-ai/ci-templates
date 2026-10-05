@@ -1,9 +1,55 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Runs inside the caller repository's flake dev shell:
+#   CI_RUNNER_PATH="$PATH" nix develop .#<nix_shell> --command bazelisk-ci <bazel args...>
+# Bazelisk is the dev shell's own Nix-store output. The runner supplies Nix
+# only; a runner-projected or PATH-ambient Bazelisk is never admitted.
+# An impure `nix develop` appends the runner's PATH after the shell's own, so
+# CI_RUNNER_PATH carries the runner's PATH from before the shell and any
+# Bazelisk resolved from one of its entries is refused, even a Nix-store one.
+
+[[ -n "${IN_NIX_SHELL:-}" ]] || {
+  echo "bazelisk-ci must run inside the caller flake dev shell (nix develop .#<nix_shell> --command ...)" >&2
+  exit 2
+}
+
+[[ -n "${CI_RUNNER_PATH:-}" ]] || {
+  echo "bazelisk-ci needs CI_RUNNER_PATH (the runner PATH before the caller flake dev shell): CI_RUNNER_PATH=\"\$PATH\" nix develop .#<nix_shell> --command ..." >&2
+  exit 2
+}
+
+nix_store="${NIX_STORE:-/nix/store}"
+bazelisk_bin="$(command -v bazelisk || true)"
+if [[ -z "$bazelisk_bin" ]]; then
+  echo "bazelisk is missing from the caller flake dev shell; add bazelisk to that devShell's packages" >&2
+  exit 127
+fi
+bazelisk_dir="$(dirname "$bazelisk_bin")"
+IFS=: read -r -a runner_path_entries <<< "$CI_RUNNER_PATH"
+for runner_entry in "${runner_path_entries[@]}"; do
+  [[ -n "$runner_entry" ]] || continue
+  [[ "$runner_entry" == "/" ]] || runner_entry="${runner_entry%/}"
+  if [[ "$runner_entry" == "$bazelisk_dir" ]]; then
+    echo "bazelisk resolved to $bazelisk_bin from the runner PATH entry $runner_entry, not from the caller flake dev shell; add bazelisk to that devShell's packages" >&2
+    exit 127
+  fi
+done
+bazelisk_rel="${bazelisk_bin#"$nix_store"/}"
+if [[ "$bazelisk_rel" == "$bazelisk_bin" \
+  || ! "$bazelisk_rel" =~ ^[0123456789abcdfghijklmnpqrsvwxyz]{32}-[^/]+/bin/bazelisk$ \
+  || ! -x "$bazelisk_bin" ]]; then
+  echo "bazelisk resolved to $bazelisk_bin, which is not a Nix-store output of the caller flake dev shell; add bazelisk to that devShell's packages" >&2
+  exit 127
+fi
+
+if [[ "${1:-}" == "--print-bazelisk" ]]; then
+  printf '%s\n' "$bazelisk_bin"
+  exit 0
+fi
+
 : "${CI_BAZEL_VERSION:?CI_BAZEL_VERSION is required}"
 : "${CI_BAZEL_HOME:?CI_BAZEL_HOME is required}"
-: "${CI_BAZELISK_BIN:?CI_BAZELISK_BIN is required}"
 
 [[ "$CI_BAZEL_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
   echo "invalid exact CI_BAZEL_VERSION" >&2
@@ -11,10 +57,6 @@ set -euo pipefail
 }
 [[ "$CI_BAZEL_HOME" == /* ]] || {
   echo "CI_BAZEL_HOME must be absolute" >&2
-  exit 2
-}
-[[ "$CI_BAZELISK_BIN" == /*/bin/bazelisk ]] || {
-  echo "CI_BAZELISK_BIN must be the absolute custody-validated binary" >&2
   exit 2
 }
 
@@ -50,6 +92,7 @@ exec env \
   -u CARGO_BAZEL_REPIN \
   -u CARGO_BAZEL_REPIN_ONLY \
   -u CARGO_BAZEL_TIMEOUT \
+  -u CI_RUNNER_PATH \
   -u REPIN \
   -u USE_BAZEL_FALLBACK_VERSION \
   -u USE_BAZEL_VERSION \
@@ -59,7 +102,7 @@ exec env \
   BAZELISK_SKIP_WRAPPER=1 \
   USE_BAZEL_VERSION="$CI_BAZEL_VERSION" \
   XDG_CACHE_HOME="$CI_BAZEL_HOME/xdg-cache" \
-  "$CI_BAZELISK_BIN" \
+  "$bazelisk_bin" \
     --output_user_root="$CI_BAZEL_HOME/bazel-output" \
     --ignore_all_rc_files \
     "$@"

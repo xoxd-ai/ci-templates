@@ -26,6 +26,15 @@ on:
         description: Required major from the consumer's tracked .bazelversion.
         type: string
         default: "9"
+      nix_shell:
+        description: >-
+          Caller flake devShell attribute that supplies Bazelisk. Every Bazel
+          invocation runs as `nix develop .#<nix_shell> --command ...` from the
+          exact caller checkout against its tracked flake.lock; the runner
+          supplies only Nix. A shell without its own Nix-store bazelisk is
+          refused, including when a runner PATH entry would supply one.
+        type: string
+        default: default
       rustfmt_targets_json:
         description: Finite non-empty JSON array of exact Bazel rustfmt test labels.
         type: string
@@ -113,7 +122,7 @@ jobs:
     steps:
       - name: Validate route, matrix, and finite targets before scheduling
         id: preflight
-        uses: xoxd-ai/ci-templates/.github/actions/rust-bazel-preflight@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/rust-bazel-preflight@v6.0.0
         with:
           repository_private: ${{ github.event.repository.private }}
           event_name: ${{ github.event_name }}
@@ -144,10 +153,6 @@ jobs:
       labels: ${{ matrix.lane.runner_labels }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
     steps:
-      - name: Validate trusted Bazelisk before caller checkout
-        id: bazelisk-custody
-        uses: xoxd-ai/ci-templates/.github/actions/rust-bazel-binary-custody@v5.1.1
-
       - name: Check out exact caller revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -155,7 +160,7 @@ jobs:
 
       - name: Validate finite targets and native platform
         id: contract
-        uses: xoxd-ai/ci-templates/.github/actions/rust-bazel-contract@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/rust-bazel-contract@v6.0.0
         with:
           runner_group: ${{ inputs.runner_group }}
           lane_name: ${{ matrix.lane.name }}
@@ -187,7 +192,7 @@ jobs:
 
       - name: Assert runtime cache attachment
         if: inputs.cache_enabled
-        uses: xoxd-ai/ci-templates/.github/actions/cache-attachment-validate@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/cache-attachment-validate@v6.0.0
         env:
           BAZEL_REMOTE_CACHE: ${{ inputs.cache_enabled && secrets.GF_BAZEL_REMOTE_CACHE || '' }}
           BAZEL_REMOTE_EXECUTOR: ""
@@ -195,13 +200,40 @@ jobs:
           substrate_mode: ${{ inputs.cache_substrate_mode }}
           runner_labels: ${{ join(matrix.lane.runner_labels, ',') }}
 
+      - name: Resolve Bazelisk from the caller flake dev shell
+        shell: bash
+        env:
+          BAZELISK_DRIVER: ${{ steps.contract.outputs.bazelisk_driver }}
+          NIX_SHELL: ${{ inputs.nix_shell }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$NIX_SHELL" =~ ^[A-Za-z_][A-Za-z0-9_-]*$ ]]; then
+            echo "::error::nix_shell must be a plain flake devShell attribute name"
+            exit 1
+          fi
+          if ! command -v nix >/dev/null 2>&1; then
+            echo "::error::nix is not on PATH; Bazel runs only inside the caller flake dev shell (nix develop .#${NIX_SHELL})"
+            exit 1
+          fi
+          for flake_file in flake.nix flake.lock; do
+            if ! git ls-files --error-unmatch -- "$flake_file" >/dev/null 2>&1 || [[ ! -f "$flake_file" || -L "$flake_file" ]]; then
+              echo "::error::$flake_file must be a tracked regular file; Bazelisk comes only from the caller flake dev shell"
+              exit 1
+            fi
+          done
+          if ! bazelisk_path="$(CI_RUNNER_PATH="$PATH" nix develop --no-update-lock-file ".#${NIX_SHELL}" --command "$BAZELISK_DRIVER" --print-bazelisk)"; then
+            echo "::error::bazelisk is missing from the caller flake dev shell .#${NIX_SHELL}; add bazelisk to that devShell's packages"
+            exit 1
+          fi
+          echo "::notice::Bazelisk from caller flake dev shell .#${NIX_SHELL}: ${bazelisk_path}"
+
       - name: Prove Bzlmod and crate-universe locks are current
         shell: bash
         env:
           BAZELISK_DRIVER: ${{ steps.contract.outputs.bazelisk_driver }}
           CI_BAZEL_HOME: ${{ steps.contract.outputs.bazel_home }}
-          CI_BAZELISK_BIN: ${{ steps.bazelisk-custody.outputs.path }}
           CI_BAZEL_VERSION: ${{ steps.contract.outputs.bazel_version }}
+          NIX_SHELL: ${{ inputs.nix_shell }}
         run: |
           set -euo pipefail
           dependency_authorities=(MODULE.bazel.lock Cargo.lock cargo-bazel-lock.json)
@@ -209,7 +241,8 @@ jobs:
             echo "::error::a tracked Bzlmod or crate-universe authority was dirty before the lock-drift check"
             exit 1
           fi
-          "$BAZELISK_DRIVER" mod deps --lockfile_mode=update
+          dev_shell=(env CI_RUNNER_PATH="$PATH" nix develop --no-update-lock-file ".#${NIX_SHELL}" --command)
+          "${dev_shell[@]}" "$BAZELISK_DRIVER" mod deps --lockfile_mode=update
           if [[ -n "$(git status --porcelain=v1 -- "${dependency_authorities[@]}")" ]]; then
             git --no-pager diff -- "${dependency_authorities[@]}"
             echo "::error::Bzlmod or crate-universe lock drift detected; regenerate and commit every dependency authority"
@@ -226,8 +259,8 @@ jobs:
           GF_BAZEL_REMOTE_CACHE_HEADER: ${{ inputs.cache_enabled && (steps.contract.outputs.cache_upload == 'true' && secrets.GF_BAZEL_REMOTE_CACHE_WRITE_HEADER || secrets.GF_BAZEL_REMOTE_CACHE_READ_HEADER) || '' }}
           BAZELISK_DRIVER: ${{ steps.contract.outputs.bazelisk_driver }}
           CI_BAZEL_HOME: ${{ steps.contract.outputs.bazel_home }}
-          CI_BAZELISK_BIN: ${{ steps.bazelisk-custody.outputs.path }}
           CI_BAZEL_VERSION: ${{ steps.contract.outputs.bazel_version }}
+          NIX_SHELL: ${{ inputs.nix_shell }}
           RUSTFMT_TARGETS: ${{ steps.contract.outputs.rustfmt_targets }}
           CLIPPY_TARGETS: ${{ steps.contract.outputs.clippy_targets }}
           BUILD_TARGETS: ${{ steps.contract.outputs.build_targets }}
@@ -236,6 +269,7 @@ jobs:
           PACKAGE_TARGETS: ${{ steps.contract.outputs.package_targets }}
         run: |
           set -euo pipefail
+          dev_shell=(env CI_RUNNER_PATH="$PATH" nix develop --no-update-lock-file ".#${NIX_SHELL}" --command)
           remote_args=(--remote_executor=)
           if [[ "$CACHE_ENABLED" == true ]]; then
             remote_args+=(--remote_cache="$BAZEL_REMOTE_CACHE")
@@ -267,7 +301,7 @@ jobs:
               test_args+=(--test_output=errors)
             fi
             echo "::group::$display_name (${#targets[@]} exact target(s), platform=$BAZEL_PLATFORM)"
-            "$BAZELISK_DRIVER" "$command" \
+            "${dev_shell[@]}" "$BAZELISK_DRIVER" "$command" \
               --lockfile_mode=error \
               --platforms="$BAZEL_PLATFORM" \
               --verbose_failures \
