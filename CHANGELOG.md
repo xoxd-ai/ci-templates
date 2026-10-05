@@ -5,6 +5,40 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+## [6.0.0] — 2026-10-04
+
+### Removed
+
+- **R70 / TIN-4655 runner tool custody retired (BREAKING for opted
+  `rust-bazel-application.yml` callers).** Delete the
+  `rust-bazel-binary-custody` composite and its `custody.py`. That action
+  required every native runner to project a root-owned Nix-store Bazelisk path
+  in `TINYLAND_CI_BAZELISK_BIN`. No runner set ever projected it, and
+  runner-supplied build tools are a fat-runner non-pattern. The Rust+Bazel
+  contract check now refuses the action's return and any
+  `TINYLAND_CI_BAZELISK_BIN`/`CI_BAZELISK_BIN` reference.
+
+### Changed
+
+- **`rust-bazel-application.yml` runs Bazel inside the caller flake dev
+  shell.** New input `nix_shell` (default `default`). After the exact checkout
+  and lane contract, the workflow requires tracked `flake.nix`/`flake.lock` and
+  Nix on the runner. It resolves `bazelisk` through
+  `nix develop --no-update-lock-file .#<nix_shell> --command` and refuses with
+  `bazelisk is missing from the caller flake dev shell` when the shell has no
+  direct Nix-store Bazelisk. Every Bazel invocation, including the lock-drift
+  proof, goes through that shell. The release-vendored driver keeps its
+  environment scrubbing, exact version, `--ignore_all_rc_files`, and job-scoped
+  output root, and now takes Bazelisk only from the dev shell's `PATH`: the
+  workflow passes the runner's pre-shell `PATH` in as `CI_RUNNER_PATH`, and the
+  driver refuses a Bazelisk resolved from any of its entries, even a Nix-store
+  one that an impure `nix develop` appends after the shell's own `PATH`. The
+  admission job, action pins, permissions, and cache policy are unchanged. See
+  `docs/migration-v5-to-v6.md`.
+- Raise every internal self-ref from `@v5.1.1` to the exact `@v6.0.0` release.
+  The restricted contract's legacy `spoke-ci.yml` digest is re-pinned to the
+  ref-only byte change. No other workflow or action behaviour changes.
+
 ### Added
 
 - **TIN-4251 fork-pilot admission edge.** `spoke-ci-v4.yml` gains an optional

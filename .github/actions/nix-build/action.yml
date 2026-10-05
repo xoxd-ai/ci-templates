@@ -33,7 +33,7 @@ runs:
         extra_nix_config: |
           accept-flake-config = true
 
-    - uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
+    - uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v6.0.0
       with:
         attic-server: ${{ inputs.attic-server }}
         attic-cache: ${{ inputs.attic-cache }}
