@@ -484,3 +484,57 @@ jobs:
       - uses: xoxd-ai/ci-templates/.github/actions/setup-nix@v5.1.1
       - run: nix develop --command just setup
       - run: nix develop --command just test-e2e
+
+  all-required:
+    # Fail-closed aggregate gate (TIN-2611). GitHub reports a job skipped by an
+    # unmet `needs:` (or an `if:`) as a neutral check that satisfies a required
+    # status check of the same name. When secrets-scan failed, bazel-graph was
+    # skipped, and a ruleset requiring `ci / bazel-graph` read it as passing; the
+    # matrix jobs' required contexts carry the lanes.json tuple in their names
+    # and drift whenever a lane changes. This job runs whatever happened
+    # upstream and fails unless every job it needs succeeded, so a consumer can
+    # require the single stable context `<caller job> / all-required` instead.
+    # The only accepted skip is playwright with playwright_enabled=false.
+    # `always()`, not `!cancelled()`: a cancelled run must leave this check
+    # failed, because a gate skipped on cancellation would itself read as pass.
+    # `required-gate-contract-check` keeps `needs:` equal to every other job in
+    # this workflow and executes the verdict script over a result grid.
+    if: ${{ always() }}
+    needs: [secrets-scan, lanes-load, repo-manifest, flywheel-build, flywheel-test, bazel-graph, playwright]
+    # Base capability class, group-routed on opt-in (see secrets-scan).
+    runs-on: >-
+      ${{ inputs.runner_group != '' &&
+      fromJSON(format('{{"group":{0},"labels":{1}}}', toJSON(inputs.runner_group), toJSON(inputs.default_runner_class)))
+      || inputs.default_runner_class }}
+    timeout-minutes: 5
+    steps:
+      - name: Require every upstream job to succeed
+        shell: bash
+        env:
+          PLAYWRIGHT_ENABLED: ${{ inputs.playwright_enabled }}
+          RESULT_SECRETS_SCAN: ${{ needs.secrets-scan.result }}
+          RESULT_LANES_LOAD: ${{ needs.lanes-load.result }}
+          RESULT_REPO_MANIFEST: ${{ needs.repo-manifest.result }}
+          RESULT_FLYWHEEL_BUILD: ${{ needs.flywheel-build.result }}
+          RESULT_FLYWHEEL_TEST: ${{ needs.flywheel-test.result }}
+          RESULT_BAZEL_GRAPH: ${{ needs.bazel-graph.result }}
+          RESULT_PLAYWRIGHT: ${{ needs.playwright.result }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for var in RESULT_SECRETS_SCAN RESULT_LANES_LOAD RESULT_REPO_MANIFEST \
+                     RESULT_FLYWHEEL_BUILD RESULT_FLYWHEEL_TEST RESULT_BAZEL_GRAPH \
+                     RESULT_PLAYWRIGHT; do
+            result="${!var:-}"
+            if [[ "$var" == "RESULT_PLAYWRIGHT" && "$PLAYWRIGHT_ENABLED" != "true" && "$result" == "skipped" ]]; then
+              echo "PLAYWRIGHT: skipped (playwright_enabled=false)"
+              continue
+            fi
+            if [[ "$result" == "success" ]]; then
+              echo "${var#RESULT_}: success"
+            else
+              echo "::error::${var#RESULT_} result is '${result:-<empty>}', not success"
+              failed=1
+            fi
+          done
+          exit "$failed"

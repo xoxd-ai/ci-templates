@@ -411,7 +411,7 @@ jobs:
 
 | Job | `runner_group` unset | `runner_group` set |
 |---|---|---|
-| `secrets-scan`, `lanes-load`, `repo-manifest` | `default_runner_class` | `{ group: <runner_group>, labels: default_runner_class }` |
+| `secrets-scan`, `lanes-load`, `repo-manifest`, `all-required` | `default_runner_class` | `{ group: <runner_group>, labels: default_runner_class }` |
 | `flywheel-build`, `flywheel-test` | `runner_labels_json` → `matrix.lane.runner_class` → `default_runner_class` | `{ group: <runner_group>, labels: <same value> }` |
 | `bazel-graph` | `heavy_runner_class` | `{ group: <runner_group>, labels: heavy_runner_class }` |
 | `playwright` | `kvm_runner_class` | `{ group: <runner_group>, labels: kvm_runner_class }` |
@@ -421,7 +421,8 @@ jobs:
   `runner_labels_json`. The input adds a group; it never re-picks a label.
 - **The hosted class is gone, and the group now covers everything.** TIN-3914
   moved `secrets-scan`, `lanes-load`, and `repo-manifest` off `ubuntu-latest`
-  onto `default_runner_class`, so all seven jobs are group-routed on opt-in.
+  onto `default_runner_class`, so every job (including the TIN-2611
+  `all-required` gate) is group-routed on opt-in.
   The gate still *derives* the never-group-routed set from "literal `runs-on`
   in the pinned baseline" rather than naming jobs, so that class is currently
   empty and a future literal-`runs-on` job lands on an already-tested rule; the
@@ -440,6 +441,28 @@ jobs:
   mapping at runtime via `fromJSON(format(...))`. `just runner-group-contract-check`
   renders both paths over a scenario grid and fails if the default path ever
   stops being byte-identical.
+
+### Require `all-required`, not the individual jobs (TIN-2611)
+
+GitHub reports a job skipped by an unmet `needs:` as a neutral check, and a
+neutral check satisfies a required status check of the same name. When
+`secrets-scan` fails, `bazel-graph`, `flywheel-build`, `flywheel-test`, and
+`playwright` are all skipped. The matrix jobs' contexts also carry the
+`lanes.json` tuple in their names (for example
+`ci / playwright (default, pull_request, glorious, checked-in, true)`), so they
+drift whenever a lane changes.
+
+`spoke-ci.yml` therefore ends with an `all-required` job. It runs under
+`always()`, needs every other job, and fails unless each one reported
+`success`. The only skip it accepts is `playwright` when `playwright_enabled`
+is false. A consumer's ruleset should require the one stable context
+`<caller job id> / all-required` (with the conventional `jobs: ci:` wrapper,
+`ci / all-required`) in place of the per-job contexts.
+`just required-gate-contract-check` keeps `needs:` equal to every other job and
+executes the gate's verdict script over a result grid.
+
+The gate cannot help a merge that bypasses the ruleset. A required check only
+blocks someone who is not on the ruleset's bypass list.
 
 ### Cloudflare Pages deploy lane (opt-in)
 
