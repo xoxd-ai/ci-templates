@@ -64,6 +64,7 @@ EXPECTED_CLOSURE_ACTIONS = %w[
   lane-status-check
   lanes-load
   nix-setup
+  repo-manifest-jsonschema
   repo-manifest-validate
   secrets-scan
   setup-nix
@@ -114,7 +115,17 @@ SPECS = {
     # `always()` and fails unless every upstream job succeeded. That job
     # is the reviewed legacy-only delta named in `legacy_only_jobs` below,
     # and `just required-gate-contract-check` proves its shape and verdict.
-    legacy_sha256: "cd9a1e67d0e49e8ceb2b2be2759f56dae366eb3cb4f2e9b4bf46c451885dc496",
+    # Re-recorded for the v3.3.0 forward port onto main (TIN-3692 DB1).
+    # Previously cd9a1e67… (TIN-2611). Two v3-line changes that main never
+    # received: (1) CI3t's optional `playwright_timeout_minutes` input (default
+    # 30), so the playwright job's fixed `timeout-minutes: 30` renders the same
+    # cap for every consumer that does not opt in; (2) #176's release-vendored
+    # repo-manifest-jsonschema provider ahead of each manifest validator, which
+    # exposes only the lockfile-pinned JSON Schema interpreter through
+    # REPO_MANIFEST_PYTHON. The restricted variant declares and threads the same
+    # input and the same provider steps, so it stays a strict subset and the
+    # structural comparison is unaffected.
+    legacy_sha256: "3cff5b57c0b80264e1b9532c9bb2a379a546cede7fc0ffccd745621de4f19a28",
     # Jobs present only in the legacy workflow, stripped from the legacy copy
     # before the structural compare. The restricted variant forbids status
     # functions such as `always()` downstream of its trust gate, so the

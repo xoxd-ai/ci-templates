@@ -426,6 +426,7 @@ def check_flywheel_reapi_proof_contract() -> int:
 #: bundled manifest validator. Guards below read THIS step's shell, not the file.
 MANIFEST_VALIDATE_STEP = "Validate repo manifest schema"
 MANIFEST_VALIDATOR_BASENAME = "manifest-schema-validate.py"
+MANIFEST_JSONSCHEMA_ACTION_BASENAME = "repo-manifest-jsonschema"
 
 #: The interpreter-selection helper (2026-09-06 follow-up to TIN-4132): the
 #: step no longer invokes a literal `python3`/`python` -- it captures the
@@ -693,6 +694,63 @@ def check_cache_backed_optin_contract() -> int:
             file=sys.stderr,
         )
         ok = False
+
+    # v3.2.2 forward port (#176, TIN-3692 DB1): the lockfile-pinned JSON Schema
+    # provider exists, keeps its contract, and runs before every validator.
+    jsonschema_action_path = (
+        ROOT / ".github/actions" / MANIFEST_JSONSCHEMA_ACTION_BASENAME / "action.yml"
+    )
+    if not jsonschema_action_path.is_file():
+        print(f"missing {jsonschema_action_path.relative_to(ROOT)}", file=sys.stderr)
+        ok = False
+    else:
+        jsonschema_action = jsonschema_action_path.read_text(encoding="utf-8")
+        required_jsonschema_action_snippets = (
+            "nix develop",
+            "flake.lock",
+            "import jsonschema",
+            "REPO_MANIFEST_PYTHON=",
+            '>> "$GITHUB_ENV"',
+        )
+        for snippet in required_jsonschema_action_snippets:
+            if snippet not in jsonschema_action:
+                print(
+                    f"{jsonschema_action_path.relative_to(ROOT)}: missing JSON Schema "
+                    f"provider contract: {snippet}",
+                    file=sys.stderr,
+                )
+                ok = False
+
+        # The reusable callers must invoke the provider before every manifest
+        # validator invocation. The explicit interpreter reaches the following
+        # composite step through GITHUB_ENV; merely vendoring the provider action
+        # without putting it in the job leaves consumers on the same exit-5 path.
+        provider_ref = f"{MANIFEST_JSONSCHEMA_ACTION_BASENAME}@v5.1.1"
+        validator_ref = "repo-manifest-validate@v5.1.1"
+        for caller_path in (
+            ROOT / ".github/workflows/spoke-ci.yml",
+            ROOT / ".github/workflows/spoke-ci-restricted.yml",
+            ROOT / ".github/workflows/js-bazel-package.yml",
+        ):
+            caller = caller_path.read_text(encoding="utf-8")
+            providers = [m.start() for m in re.finditer(re.escape(provider_ref), caller)]
+            validators = [m.start() for m in re.finditer(re.escape(validator_ref), caller)]
+            if len(providers) != len(validators):
+                print(
+                    f"{caller_path.relative_to(ROOT)}: expected one {provider_ref} before "
+                    f"each {validator_ref} (providers={len(providers)}, validators={len(validators)})",
+                    file=sys.stderr,
+                )
+                ok = False
+                continue
+            for validator_offset in validators:
+                if not any(provider_offset < validator_offset for provider_offset in providers):
+                    print(
+                        f"{caller_path.relative_to(ROOT)}: {validator_ref} has no preceding "
+                        f"{provider_ref}; nothing provides jsonschema before validation",
+                        file=sys.stderr,
+                    )
+                    ok = False
 
     # TIN-2109: the manifest validator must be dependency-free (no nix/network)
     # so the gate works on nix self-hosted cluster runners.

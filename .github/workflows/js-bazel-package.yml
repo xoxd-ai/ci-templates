@@ -747,6 +747,9 @@ jobs:
       # consumers). Validates the consumer's tinyland.repo.json against the
       # vendored ci-templates schema and FAILS CLOSED on an invalid manifest
       # (TIN-2109). Network-free: the schema ships in the action.
+      - name: Provide repo manifest JSON Schema engine (cache-backed lane)
+        if: ${{ inputs.cache_backed }}
+        uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-jsonschema@v5.1.1
       - name: Validate repo manifest (cache-backed lane)
         if: ${{ inputs.cache_backed }}
         uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v5.1.1
