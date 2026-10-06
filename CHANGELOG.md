@@ -7,6 +7,35 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **v3-line forward port (TIN-3692 DB1).** Two changes shipped only on the
+  v3 line (v3.2.2 #176 and v3.3.0 #178) and never reached main, so v6 would
+  have regressed them:
+  - `playwright_timeout_minutes` (number, default 30) on `spoke-ci.yml` and
+    `spoke-ci-restricted.yml`, threaded into the playwright job's
+    `timeout-minutes`. The default renders the fixed cap it replaces
+    byte-identically. glorious.build sets 60: at the cap, its 25 to 30 minute
+    suite on tinyland-nix-kvm was cancelled on every run (ruling CI3t, TIN-4435).
+  - `.github/actions/repo-manifest-jsonschema`, the provider that exposes
+    ci-templates' lockfile-pinned JSON Schema interpreter through
+    `REPO_MANIFEST_PYTHON`, now runs before every `repo-manifest-validate` in
+    `spoke-ci.yml` (2 steps), `spoke-ci-restricted.yml` (2) and
+    `js-bazel-package.yml` (1). `manifest-python-select.sh` probes that
+    explicit override non-isolated, the same way the validator runs it.
+    Without it, a consumer whose runner image lacks jsonschema fails
+    `repo-manifest` (site.scaffold #188 at 5.1.1).
+    `cache-backed-optin-contract` requires one provider before each
+    validator. The restricted contract adds the provider to its action
+    closure and re-records the legacy spoke-ci digest.
+  - Not forward-ported, kept retired: `spoke-lane-env.yml`,
+    `spoke-lane-env-restricted.yml`, `spoke-public-preview.yml` and the
+    `public-preview-dispatch` action (removed from main by 22d2a07 and
+    0abc62a, the v4 action fabric). An estate code search on 2026-10-06
+    found no caller of either preview surface, and two lane-env callers,
+    both pinned to v2 (xoxd-ai/software.tinyland.dev `@v2.14.1`,
+    Jesssullivan/darkmap.phasi.space `tinyland-inc/...@v2`). Those stay on
+    their v2 pins until they leave the Blahaj lane-env path; v6 does not
+    bring the surfaces back.
+
 - **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub
   reports a job skipped by an unmet `needs:` as a neutral check that
   satisfies a required status check of the same name. A failed
