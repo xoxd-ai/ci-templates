@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v5.1.1"
+IMMUTABLE_RELEASE = "v6.0.0"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -64,6 +64,7 @@ EXPECTED_CLOSURE_ACTIONS = %w[
   lane-status-check
   lanes-load
   nix-setup
+  repo-manifest-jsonschema
   repo-manifest-validate
   secrets-scan
   setup-nix
@@ -114,7 +115,22 @@ SPECS = {
     # `always()` and fails unless every upstream job succeeded. That job
     # is the reviewed legacy-only delta named in `legacy_only_jobs` below,
     # and `just required-gate-contract-check` proves its shape and verdict.
-    legacy_sha256: "cd9a1e67d0e49e8ceb2b2be2759f56dae366eb3cb4f2e9b4bf46c451885dc496",
+    # Re-recorded for the v3.3.0 forward port onto main (TIN-3692 DB1).
+    # Previously cd9a1e67… (TIN-2611). Two v3-line changes that main never
+    # received: (1) CI3t's optional `playwright_timeout_minutes` input (default
+    # 30), so the playwright job's fixed `timeout-minutes: 30` renders the same
+    # cap for every consumer that does not opt in; (2) #176's release-vendored
+    # repo-manifest-jsonschema provider ahead of each manifest validator, which
+    # exposes only the lockfile-pinned JSON Schema interpreter through
+    # REPO_MANIFEST_PYTHON. The restricted variant declares and threads the same
+    # input and the same provider steps, so it stays a strict subset and the
+    # structural comparison is unaffected.
+    #
+    # Re-recorded for v6.0.0 (R70 / TIN-4655 runner tool-custody retirement),
+    # rebased onto main 127e1c7 + DB1 (TIN-3692 DB2). Previously 3cff5b57…
+    # (DB1). The only legacy byte change is every internal self-ref raised from
+    # @v5.1.1 to the exact @v6.0.0 release; no job, input, or step changed.
+    legacy_sha256: "f5defb5a25cdf10c636e70ce947b89a3b6e0b53c824c4a929e6e5afaf3fb1c06",
     # Jobs present only in the legacy workflow, stripped from the legacy copy
     # before the structural compare. The restricted variant forbids status
     # functions such as `always()` downstream of its trust gate, so the

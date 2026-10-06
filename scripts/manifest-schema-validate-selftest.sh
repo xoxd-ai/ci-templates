@@ -319,8 +319,10 @@ run_case 2 engine "no arguments is a usage error, still 2" --
 # PATH's python3), using stub interpreters under mktemp so nothing here
 # depends on this HOST's real /usr/bin/python3 or PATH python3.
 #
-# Each stub is a tiny script that answers the ONE probe the selector makes
+# Each runner-image stub answers the selector's isolated probe
 # (`<stub> -I -c 'import jsonschema'`) by exiting 0 (has it) or 1 (does not).
+# The explicit override is pre-probed by repo-manifest-jsonschema and therefore
+# runs the same non-isolated command the validator will run.
 stubdir="${work}/stubs"
 mkdir -p "${stubdir}/path" "${stubdir}/sys" "${stubdir}/override"
 
@@ -331,6 +333,12 @@ make_stub() {
   else
     printf '#!/usr/bin/env bash\nexit 1\n' >"${path}"
   fi
+  chmod +x "${path}"
+}
+
+make_override_stub() {
+  local path="$1"
+  printf '#!/usr/bin/env bash\n[[ "$1" == "-c" && "$2" == "import jsonschema" ]] && exit 0\nexit 1\n' >"${path}"
   chmod +x "${path}"
 }
 
@@ -424,7 +432,7 @@ done
 
 # Case 3: $REPO_MANIFEST_PYTHON, when set, wins even when the sys candidate
 # ALSO has jsonschema -- proving priority order, not just presence.
-make_stub "${stubdir}/override/python3" ok
+make_override_stub "${stubdir}/override/python3"
 make_stub "${stubdir}/sys/python3-has-it2" ok
 make_stub "${stubdir}/path/python3" missing
 chosen_out="$(run_select_case 0 \

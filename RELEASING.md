@@ -114,7 +114,7 @@ their transitive closure MUST reference siblings by an exact immutable release,
 not `@main`, floating `@vMAJOR`, or a consumer-relative `./` path:
 
 ```yaml
-uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
+uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v6.0.0
 ```
 
 This makes the exact workflow tag a closed source graph: moving the floating

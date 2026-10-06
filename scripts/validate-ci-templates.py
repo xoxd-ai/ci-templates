@@ -16,7 +16,7 @@ from collections import Counter
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v5.1.1"
+RUST_BAZEL_RELEASE = "v6.0.0"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -227,7 +227,7 @@ def check_v4_action_client_surface() -> bool:
         "GF_REAPI_",
         "BAZEL_REMOTE_",
         "gloriousflywheel-rbe-",
-        "@v5.1.1",
+        "@v6.0.0",
         "packages: write",
         "contents: write",
         "git push",
@@ -426,6 +426,7 @@ def check_flywheel_reapi_proof_contract() -> int:
 #: bundled manifest validator. Guards below read THIS step's shell, not the file.
 MANIFEST_VALIDATE_STEP = "Validate repo manifest schema"
 MANIFEST_VALIDATOR_BASENAME = "manifest-schema-validate.py"
+MANIFEST_JSONSCHEMA_ACTION_BASENAME = "repo-manifest-jsonschema"
 
 #: The interpreter-selection helper (2026-09-06 follow-up to TIN-4132): the
 #: step no longer invokes a literal `python3`/`python` -- it captures the
@@ -666,7 +667,7 @@ def check_cache_backed_optin_contract() -> int:
         '"npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"',
         # TIN-2109: manifest validation in the cache-backed lane (fail-closed)
         "Validate repo manifest (cache-backed lane)",
-        "repo-manifest-validate@v5.1.1",
+        "repo-manifest-validate@v6.0.0",
         # TIN-2109: expected mode is manifest-driven (enrollment.substrateMode)
         ".enrollment.substrateMode",
         "GF_BAZEL_SUBSTRATE_MODE=",
@@ -693,6 +694,63 @@ def check_cache_backed_optin_contract() -> int:
             file=sys.stderr,
         )
         ok = False
+
+    # v3.2.2 forward port (#176, TIN-3692 DB1): the lockfile-pinned JSON Schema
+    # provider exists, keeps its contract, and runs before every validator.
+    jsonschema_action_path = (
+        ROOT / ".github/actions" / MANIFEST_JSONSCHEMA_ACTION_BASENAME / "action.yml"
+    )
+    if not jsonschema_action_path.is_file():
+        print(f"missing {jsonschema_action_path.relative_to(ROOT)}", file=sys.stderr)
+        ok = False
+    else:
+        jsonschema_action = jsonschema_action_path.read_text(encoding="utf-8")
+        required_jsonschema_action_snippets = (
+            "nix develop",
+            "flake.lock",
+            "import jsonschema",
+            "REPO_MANIFEST_PYTHON=",
+            '>> "$GITHUB_ENV"',
+        )
+        for snippet in required_jsonschema_action_snippets:
+            if snippet not in jsonschema_action:
+                print(
+                    f"{jsonschema_action_path.relative_to(ROOT)}: missing JSON Schema "
+                    f"provider contract: {snippet}",
+                    file=sys.stderr,
+                )
+                ok = False
+
+        # The reusable callers must invoke the provider before every manifest
+        # validator invocation. The explicit interpreter reaches the following
+        # composite step through GITHUB_ENV; merely vendoring the provider action
+        # without putting it in the job leaves consumers on the same exit-5 path.
+        provider_ref = f"{MANIFEST_JSONSCHEMA_ACTION_BASENAME}@v6.0.0"
+        validator_ref = "repo-manifest-validate@v6.0.0"
+        for caller_path in (
+            ROOT / ".github/workflows/spoke-ci.yml",
+            ROOT / ".github/workflows/spoke-ci-restricted.yml",
+            ROOT / ".github/workflows/js-bazel-package.yml",
+        ):
+            caller = caller_path.read_text(encoding="utf-8")
+            providers = [m.start() for m in re.finditer(re.escape(provider_ref), caller)]
+            validators = [m.start() for m in re.finditer(re.escape(validator_ref), caller)]
+            if len(providers) != len(validators):
+                print(
+                    f"{caller_path.relative_to(ROOT)}: expected one {provider_ref} before "
+                    f"each {validator_ref} (providers={len(providers)}, validators={len(validators)})",
+                    file=sys.stderr,
+                )
+                ok = False
+                continue
+            for validator_offset in validators:
+                if not any(provider_offset < validator_offset for provider_offset in providers):
+                    print(
+                        f"{caller_path.relative_to(ROOT)}: {validator_ref} has no preceding "
+                        f"{provider_ref}; nothing provides jsonschema before validation",
+                        file=sys.stderr,
+                    )
+                    ok = False
 
     # TIN-2109: the manifest validator must be dependency-free (no nix/network)
     # so the gate works on nix self-hosted cluster runners.
@@ -863,12 +921,7 @@ def check_rust_bazel_application_contract() -> int:
     workflow_path = ROOT / ".github/workflows/rust-bazel-application.yml"
     action_path = ROOT / ".github/actions/rust-bazel-contract/action.yml"
     preflight_action_path = ROOT / ".github/actions/rust-bazel-preflight/action.yml"
-    custody_action_path = (
-        ROOT / ".github/actions/rust-bazel-binary-custody/action.yml"
-    )
-    custody_contract_path = (
-        ROOT / ".github/actions/rust-bazel-binary-custody/custody.py"
-    )
+    retired_custody_path = ROOT / ".github/actions/rust-bazel-binary-custody"
     contract_path = ROOT / ".github/actions/rust-bazel-contract/contract.py"
     driver_path = ROOT / ".github/actions/rust-bazel-contract/bazelisk-ci"
     docs_path = ROOT / "docs/rust-bazel-application.md"
@@ -876,8 +929,6 @@ def check_rust_bazel_application_contract() -> int:
         workflow_path,
         action_path,
         preflight_action_path,
-        custody_action_path,
-        custody_contract_path,
         contract_path,
         driver_path,
         docs_path,
@@ -887,14 +938,20 @@ def check_rust_bazel_application_contract() -> int:
         if not path.is_file():
             print(f"missing {path.relative_to(ROOT)}", file=sys.stderr)
             ok = False
+    if retired_custody_path.exists():
+        # R70 / TIN-4655: runner-supplied tool custody is a fat-runner
+        # non-pattern. Bazelisk comes only from the caller flake dev shell.
+        print(
+            f"{retired_custody_path.relative_to(ROOT)}: retired runner-custody action must not return",
+            file=sys.stderr,
+        )
+        ok = False
     if not ok:
         return 1
 
     workflow = workflow_path.read_text(encoding="utf-8")
     action = action_path.read_text(encoding="utf-8")
     preflight_action = preflight_action_path.read_text(encoding="utf-8")
-    custody_action = custody_action_path.read_text(encoding="utf-8")
-    custody_contract = custody_contract_path.read_text(encoding="utf-8")
     contract = contract_path.read_text(encoding="utf-8")
     driver = driver_path.read_text(encoding="utf-8")
     docs = docs_path.read_text(encoding="utf-8")
@@ -986,7 +1043,6 @@ def check_rust_bazel_application_contract() -> int:
 
     expected_internal_actions = {
         "cache-attachment-validate",
-        "rust-bazel-binary-custody",
         "rust-bazel-contract",
         "rust-bazel-preflight",
     }
@@ -1028,9 +1084,7 @@ def check_rust_bazel_application_contract() -> int:
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v5.1.1",
-        "rust-bazel-binary-custody@v5.1.1",
-        "steps.bazelisk-custody.outputs.path",
+        f"rust-bazel-preflight@{RUST_BAZEL_RELEASE}",
         "needs: trust-gate",
         'default: "[]"',
         "lane: ${{ fromJSON(needs.trust-gate.outputs.platform_matrix_json) }}",
@@ -1038,8 +1092,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v5.1.1",
-        "cache-attachment-validate@v5.1.1",
+        f"rust-bazel-contract@{RUST_BAZEL_RELEASE}",
+        f"cache-attachment-validate@{RUST_BAZEL_RELEASE}",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",
@@ -1055,12 +1109,20 @@ def check_rust_bazel_application_contract() -> int:
         "remote_args=(--remote_executor=)",
         'BAZEL_REMOTE_EXECUTOR: ""',
         "remote_args+=(--remote_cache= --remote_upload_local_results=false)",
-        '"$BAZELISK_DRIVER" mod deps --lockfile_mode=update',
-        '"$BAZELISK_DRIVER" "$command"',
+        "      nix_shell:\n",
+        "        default: default\n",
+        "NIX_SHELL: ${{ inputs.nix_shell }}",
+        '^[A-Za-z_][A-Za-z0-9_-]*$',
+        "command -v nix >/dev/null 2>&1",
+        "git ls-files --error-unmatch -- \"$flake_file\"",
+        'dev_shell=(env CI_RUNNER_PATH="$PATH" nix develop --no-update-lock-file ".#${NIX_SHELL}" --command)',
+        'CI_RUNNER_PATH="$PATH" nix develop --no-update-lock-file ".#${NIX_SHELL}" --command "$BAZELISK_DRIVER" --print-bazelisk',
+        "bazelisk is missing from the caller flake dev shell",
+        '"${dev_shell[@]}" "$BAZELISK_DRIVER" mod deps --lockfile_mode=update',
+        '"${dev_shell[@]}" "$BAZELISK_DRIVER" "$command"',
         "--lockfile_mode=error",
         "BAZELISK_DRIVER: ${{ steps.contract.outputs.bazelisk_driver }}",
         "CI_BAZEL_HOME: ${{ steps.contract.outputs.bazel_home }}",
-        "CI_BAZELISK_BIN: ${{ steps.bazelisk-custody.outputs.path }}",
         "CI_BAZEL_VERSION: ${{ steps.contract.outputs.bazel_version }}",
         "dependency_authorities=(MODULE.bazel.lock Cargo.lock cargo-bazel-lock.json)",
         'run_group "rustfmt" test',
@@ -1079,16 +1141,35 @@ def check_rust_bazel_application_contract() -> int:
             )
             ok = False
 
-    custody_step = workflow.find(
-        "      - name: Validate trusted Bazelisk before caller checkout\n"
-    )
     checkout_step = workflow.find("      - name: Check out exact caller revision\n")
-    if custody_step < 0 or checkout_step < 0 or custody_step >= checkout_step:
+    contract_step = workflow.find(
+        "      - name: Validate finite targets and native platform\n"
+    )
+    dev_shell_step = workflow.find(
+        "      - name: Resolve Bazelisk from the caller flake dev shell\n"
+    )
+    lock_step = workflow.find(
+        "      - name: Prove Bzlmod and crate-universe locks are current\n"
+    )
+    if not (0 <= checkout_step < contract_step < dev_shell_step < lock_step):
         print(
-            f"{workflow_path.relative_to(ROOT)}: binary custody must run before caller checkout",
+            f"{workflow_path.relative_to(ROOT)}: the caller flake dev shell must be resolved "
+            "after the exact checkout and lane contract and before any Bazel invocation",
             file=sys.stderr,
         )
         ok = False
+    for retired in (
+        "rust-bazel-binary-custody",
+        "bazelisk-custody",
+        "CI_BAZELISK_BIN",
+        "TINYLAND_CI_BAZELISK_BIN",
+    ):
+        if retired in workflow or retired in action:
+            print(
+                f"{workflow_path.relative_to(ROOT)}: retired runner tool custody reference: {retired}",
+                file=sys.stderr,
+            )
+            ok = False
 
     required_contract_snippets = [
         'OS_MAP = {"darwin": "macOS", "linux": "Linux"}',
@@ -1125,6 +1206,16 @@ def check_rust_bazel_application_contract() -> int:
         "-u XDG_CACHE_HOME",
         'XDG_CACHE_HOME="$CI_BAZEL_HOME/xdg-cache"',
         '--output_user_root="$CI_BAZEL_HOME/bazel-output"',
+        '[[ -n "${IN_NIX_SHELL:-}" ]]',
+        'bazelisk_bin="$(command -v bazelisk || true)"',
+        "bazelisk is missing from the caller flake dev shell",
+        '[[ -n "${CI_RUNNER_PATH:-}" ]]',
+        'IFS=: read -r -a runner_path_entries <<< "$CI_RUNNER_PATH"',
+        'if [[ "$runner_entry" == "$bazelisk_dir" ]]; then',
+        "-u CI_RUNNER_PATH",
+        "^[0123456789abcdfghijklmnpqrsvwxyz]{32}-[^/]+/bin/bazelisk$",
+        '  "$bazelisk_bin" \\\n',
+        "--print-bazelisk",
     ):
         if snippet not in driver:
             print(
@@ -1133,39 +1224,9 @@ def check_rust_bazel_application_contract() -> int:
             )
             ok = False
 
-    for snippet in (
-        "TINYLAND_CI_BAZELISK_BIN",
-        "STORE_BASENAME_RE",
-        "path.resolve(strict=True) != path",
-        "stat.S_IMODE(metadata.st_mode) & 0o022",
-        "required_uid: int = 0",
-        "rust-bazel binary custody self-test passed",
-    ):
-        if snippet not in custody_contract:
-            print(
-                f"{custody_contract_path.relative_to(ROOT)}: missing custody snippet: {snippet}",
-                file=sys.stderr,
-            )
-            ok = False
-    if "custody.py" not in custody_action:
+    if "CI_BAZELISK_BIN" in driver:
         print(
-            f"{custody_action_path.relative_to(ROOT)}: custody action does not execute its contract",
-            file=sys.stderr,
-        )
-        ok = False
-    for snippet in (
-        "value: ${{ steps.custody.outputs.path }}",
-        '--github-output "$GITHUB_OUTPUT"',
-    ):
-        if snippet not in custody_action:
-            print(
-                f"{custody_action_path.relative_to(ROOT)}: missing custody output wiring: {snippet}",
-                file=sys.stderr,
-            )
-            ok = False
-    if 'handle.write(f"path={path}\\n")' not in custody_contract:
-        print(
-            f"{custody_contract_path.relative_to(ROOT)}: canonical path is not written to the action output",
+            f"{driver_path.relative_to(ROOT)}: driver must not accept a runner-supplied Bazelisk path",
             file=sys.stderr,
         )
         ok = False
@@ -1175,13 +1236,14 @@ def check_rust_bazel_application_contract() -> int:
         "does not claim a four-platform",
         "tinyland-infra",
         "same-repository",
-        "@v5.1.1",
+        f"@{RUST_BAZEL_RELEASE}",
         "github.ref_protected == true",
         "cache-first",
         "release publication remains a",
-        "TINYLAND_CI_BAZELISK_BIN",
-        "before caller checkout",
-        "not consult PATH for Bazelisk",
+        "nix_shell",
+        "nix develop .#<nix_shell> --command",
+        "flake.lock",
+        "bazelisk is missing from the caller flake dev shell",
         "XDG_CACHE_HOME",
         "--output_user_root",
     ]
