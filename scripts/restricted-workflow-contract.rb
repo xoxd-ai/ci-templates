@@ -16,7 +16,7 @@ require "yaml"
 ROOT = File.expand_path("..", __dir__)
 GROUP_EXPR = "${{ inputs.runner_group }}"
 TRUST_JOB = "trust-gate"
-IMMUTABLE_RELEASE = "v5.1.1"
+IMMUTABLE_RELEASE = "v6.0.0"
 # The floating major the LEGACY lanes track. The restricted variants pin exact
 # releases (that is their immutability contract); the legacy lanes deliberately
 # float, and the structural comparison below has to map one onto the other. This
@@ -125,7 +125,12 @@ SPECS = {
     # REPO_MANIFEST_PYTHON. The restricted variant declares and threads the same
     # input and the same provider steps, so it stays a strict subset and the
     # structural comparison is unaffected.
-    legacy_sha256: "3cff5b57c0b80264e1b9532c9bb2a379a546cede7fc0ffccd745621de4f19a28",
+    #
+    # Re-recorded for v6.0.0 (R70 / TIN-4655 runner tool-custody retirement),
+    # rebased onto main 127e1c7 + DB1 (TIN-3692 DB2). Previously 3cff5b57…
+    # (DB1). The only legacy byte change is every internal self-ref raised from
+    # @v5.1.1 to the exact @v6.0.0 release; no job, input, or step changed.
+    legacy_sha256: "f5defb5a25cdf10c636e70ce947b89a3b6e0b53c824c4a929e6e5afaf3fb1c06",
     # Jobs present only in the legacy workflow, stripped from the legacy copy
     # before the structural compare. The restricted variant forbids status
     # functions such as `always()` downstream of its trust gate, so the

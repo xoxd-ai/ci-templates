@@ -800,11 +800,12 @@ def self_test() -> int:
         driver_test = Path(directory)
         bin_dir = driver_test / "bin"
         bin_dir.mkdir()
-        trusted_dir = driver_test / "trusted" / "bin"
-        trusted_dir.mkdir(parents=True)
+        nix_store = driver_test / "nix" / "store"
+        shell_dir = nix_store / ("0" * 32 + "-bazelisk-1.28.1") / "bin"
+        shell_dir.mkdir(parents=True)
         record = driver_test / "record"
         poison_record = driver_test / "poison-record"
-        fake_bazelisk = trusted_dir / "bazelisk"
+        fake_bazelisk = shell_dir / "bazelisk"
         fake_bazelisk.write_text(
             "#!/usr/bin/env bash\n"
             "set -euo pipefail\n"
@@ -837,14 +838,26 @@ def self_test() -> int:
             encoding="utf-8",
         )
         path_bazelisk.chmod(0o700)
+        # A runner PATH entry shaped like a Nix-store output (NixOS systemd
+        # `path`, github-runners `extraPackages`). An impure `nix develop`
+        # appends the runner PATH after the shell's own, so this is what a
+        # shell without bazelisk would otherwise resolve.
+        runner_store_dir = nix_store / ("1" * 32 + "-runner-path") / "bin"
+        runner_store_dir.mkdir(parents=True)
+        runner_store_bazelisk = runner_store_dir / "bazelisk"
+        runner_store_bazelisk.write_text(path_bazelisk.read_text(encoding="utf-8"), encoding="utf-8")
+        runner_store_bazelisk.chmod(0o700)
+        runner_path = f"{runner_store_dir}:{bin_dir}:/usr/bin:/bin"
         ci_home = driver_test / "ci-home"
         driver_env = {
             **os.environ,
-            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "PATH": f"{shell_dir}:{runner_path}",
+            "CI_RUNNER_PATH": runner_path,
+            "IN_NIX_SHELL": "impure",
+            "NIX_STORE": str(nix_store),
             "RECORD": str(record),
             "CI_BAZEL_VERSION": "9.2.0",
             "CI_BAZEL_HOME": str(ci_home),
-            "CI_BAZELISK_BIN": str(fake_bazelisk),
             "BAZELISK_BASE_URL": "https://evil.invalid",
             "BAZELISK_FORMAT_URL": "https://evil.invalid/%v",
             "BAZELISK_HOME_DARWIN": str(driver_test / "poison"),
@@ -865,7 +878,7 @@ def self_test() -> int:
             env=driver_env,
             check=True,
         )
-        assert not poison_record.exists(), "driver consulted PATH Bazelisk"
+        assert not poison_record.exists(), "driver ran a non-dev-shell Bazelisk"
         assert record.read_text(encoding="utf-8") == (
             "base=unset\n"
             "format=unset\n"
@@ -888,10 +901,59 @@ def self_test() -> int:
         )
         for relative in ("home", "bazelisk", "xdg-cache", "bazel-output"):
             path = ci_home / relative
-            assert path.is_dir(), f"driver did not create {relative} custody root"
+            assert path.is_dir(), f"driver did not create {relative} state root"
             assert (
                 stat.S_IMODE(path.stat().st_mode) & 0o077 == 0
-            ), f"driver created non-private {relative} custody root"
+            ), f"driver created non-private {relative} state root"
+
+        printed = subprocess.run(
+            [str(driver), "--print-bazelisk"],
+            env=driver_env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert printed.stdout == f"{fake_bazelisk}\n", "driver resolved the wrong Bazelisk"
+
+        refusal_cases = {
+            "outside the dev shell": {"IN_NIX_SHELL": None},
+            "without the runner PATH": {"CI_RUNNER_PATH": None},
+            "ambient PATH Bazelisk only": {"PATH": f"{bin_dir}:/usr/bin:/bin"},
+            "Bazelisk missing from the dev shell": {
+                "PATH": "/usr/bin:/bin",
+                "CI_RUNNER_PATH": "/usr/bin:/bin",
+            },
+            "runner-supplied Nix-store Bazelisk": {"PATH": runner_path},
+            "runner PATH entry with a trailing slash": {
+                "PATH": f"{shell_dir}:{runner_path}",
+                "CI_RUNNER_PATH": f"{shell_dir}/:/usr/bin:/bin",
+            },
+            "profile-shaped store link": {
+                "PATH": f"{driver_test / 'nix'}:/usr/bin:/bin",
+            },
+        }
+        profile_link = driver_test / "nix" / "bazelisk"
+        profile_link.symlink_to(fake_bazelisk)
+        for name, override in refusal_cases.items():
+            case_env = dict(driver_env)
+            for key, value in override.items():
+                if value is None:
+                    case_env.pop(key, None)
+                else:
+                    case_env[key] = value
+            record.unlink(missing_ok=True)
+            refused = subprocess.run(
+                [str(driver), "build", "//contract:target"],
+                env=case_env,
+                capture_output=True,
+                text=True,
+            )
+            assert refused.returncode != 0, f"driver admitted Bazelisk {name}"
+            assert not record.exists(), f"driver executed Bazelisk {name}"
+            assert not poison_record.exists(), f"driver executed ambient Bazelisk {name}"
+            assert (
+                "caller flake dev shell" in refused.stderr
+            ), f"driver refusal for {name} does not name the caller flake dev shell"
     print("rust-bazel application contract self-test passed")
     return 0
 

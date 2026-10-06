@@ -75,11 +75,11 @@ js-bazel-runner-contract-check:
     cd {{ root }} && python3 scripts/validate-ci-templates.py js-bazel-runner-contract
 
 # Guard the opt-in native Rust+Bazel workflow and exercise its dependency-free
-# finite-target parser. No consumer checkout or cache endpoint is required.
+# finite-target parser and dev-shell Bazelisk driver. No consumer checkout,
+# cache endpoint, or Nix evaluation is required.
 rust-bazel-application-contract-check:
     cd {{ root }} && python3 scripts/validate-ci-templates.py rust-bazel-application-contract
     cd {{ root }} && python3 .github/actions/rust-bazel-contract/contract.py --self-test
-    cd {{ root }} && python3 .github/actions/rust-bazel-binary-custody/custody.py --self-test
 
 # Ensure flywheel-reapi-proof keeps child-run correlation request-id based.
 flywheel-reapi-proof-contract-check:
