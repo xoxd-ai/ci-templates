@@ -191,6 +191,17 @@ def check_v4_action_client_surface() -> bool:
             '--result-dir "$RUNNER_TEMP/gf-action-result-'
             '${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ACTION_NAME}"'
         ): "job-unique qualified result directory",
+        (
+            "group: ${{ inputs.cancel_superseded_pull_requests && "
+            "github.event_name == 'pull_request' && "
+            "format('spoke-ci-v4-{0}-{1}-{2}', github.workflow, inputs.action_name, github.ref) || "
+            "format('spoke-ci-v4-{0}-{1}-{2}-{3}', github.workflow, inputs.action_name, "
+            "github.run_id, github.run_attempt) }}"
+        ): "R111 opt-in superseded-run group, run-unique when not opted in",
+        (
+            "cancel-in-progress: ${{ inputs.cancel_superseded_pull_requests && "
+            "github.event_name == 'pull_request' }}"
+        ): "R111 cancellation limited to opted-in superseded pull-request dispatches",
     }
     for snippet, claim in required.items():
         if snippet not in document:
@@ -199,10 +210,11 @@ def check_v4_action_client_surface() -> bool:
     if re.findall(r"^      ([a-z_][a-z0-9_]*):$", call_surface, re.MULTILINE) != [
         "action_name",
         "fork_owner_allowlist",
+        "cancel_superseded_pull_requests",
     ]:
         failures.append(
-            "workflow_call must expose only the checked-in action name and the "
-            "fork owner allowlist"
+            "workflow_call must expose only the checked-in action name, the "
+            "fork owner allowlist and the R111 cancellation opt-in"
         )
     # TIN-4251 fork-pilot edge: the allowlist input is default-off. An absent or
     # non-empty default would admit forks for every non-opted consumer.
@@ -212,6 +224,14 @@ def check_v4_action_client_surface() -> bool:
         re.MULTILINE,
     ) is None:
         failures.append("fork_owner_allowlist must default to the empty string")
+    # R111 (TIN-5447) opt-in: rule 2 requires the default to keep non-opted
+    # consumers byte-identical. Retire with spoke-ci-v4 itself.
+    if re.search(
+        r"^      cancel_superseded_pull_requests:\n(?:        .*\n)*?        default: false$",
+        call_surface,
+        re.MULTILINE,
+    ) is None:
+        failures.append("cancel_superseded_pull_requests must default to false")
     if document.count("id-token: write") != 1:
         failures.append("the thin dispatcher must carry exactly one OIDC permission")
     if re.findall(

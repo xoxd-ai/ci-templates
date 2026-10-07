@@ -7,6 +7,20 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **R111 (TIN-5447) opt-in cancellation of superseded pull-request
+  dispatches in `spoke-ci-v4.yml`.** New boolean input
+  `cancel_superseded_pull_requests`, default `false` (AGENTS.md rule 2).
+  Opted in, a pull-request dispatch joins one top-level `concurrency` group
+  per caller workflow, `action_name` and pull-request ref with
+  `cancel-in-progress`, so a newer push to the same pull request cancels the
+  superseded dispatch of the same action instead of holding a
+  `gf-v4-dispatch` slot. Push dispatches are never cancelled. A non-opted
+  caller's dispatch gets a group unique to its run attempt and action, so it
+  never waits on, replaces or cancels another run (one residual: a caller
+  that invokes the same `action_name` twice in one run would serialize
+  those two calls). `just internal-refs-check` pins the input default, the
+  group and the condition.
+
 - **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub
   reports a job skipped by an unmet `needs:` as a neutral check that
   satisfies a required status check of the same name. A failed
