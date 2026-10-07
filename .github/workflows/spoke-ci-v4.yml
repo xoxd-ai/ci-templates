@@ -29,10 +29,30 @@ on:
         required: false
         type: string
         default: ''
+      cancel_superseded_pull_requests:
+        description: >-
+          R111 (TIN-5447) opt-in. When true, a newer push to the same pull
+          request cancels the superseded dispatch of the same action. Push
+          dispatches are never cancelled. False (the default) keeps every
+          non-opted consumer's behaviour unchanged.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   id-token: write
+
+# R111 (TIN-5447), default off (AGENTS.md rule 2). Opted in, a pull-request
+# dispatch joins one group per caller workflow, action and pull-request ref
+# and cancels its superseded predecessor. Every other dispatch, and every
+# dispatch of a non-opted caller, gets a group unique to its run attempt and
+# action, so it never waits on, replaces or cancels another run. The
+# `spoke-ci-v4-` prefix keeps the group apart from a caller's own top-level
+# group, and `action_name` keeps sibling actions in one caller run apart.
+concurrency:
+  group: ${{ inputs.cancel_superseded_pull_requests && github.event_name == 'pull_request' && format('spoke-ci-v4-{0}-{1}-{2}', github.workflow, inputs.action_name, github.ref) || format('spoke-ci-v4-{0}-{1}-{2}-{3}', github.workflow, inputs.action_name, github.run_id, github.run_attempt) }}
+  cancel-in-progress: ${{ inputs.cancel_superseded_pull_requests && github.event_name == 'pull_request' }}
 
 jobs:
   action-fabric:
