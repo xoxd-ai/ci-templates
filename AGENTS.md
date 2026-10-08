@@ -50,6 +50,10 @@ a fleet-wide change.
 5. **Amend `CHANGELOG.md` `## [Unreleased]`** in every feature/fix PR. Release
    PRs move that content into the dated version section.
 6. **Run `just check` before pushing** (or `nix develop --command just check`).
+7. **No package publication (RU8, 2026-10-08).** Bazel is the only distribution
+   path for in-house packages. No workflow or action here may publish to npmjs
+   or GitHub Packages (`just no-package-publish-check`), and like rule 3 this
+   has no opt-out input.
 
 ## Local validation
 

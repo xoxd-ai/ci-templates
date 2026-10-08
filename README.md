@@ -237,8 +237,7 @@ Set `attic-public-read: "true"` on any of the three to opt in. What flips:
 
 | Workflow | Purpose |
 |---|---|
-| `js-bazel-package.yml` | Pre-existing: JS/TS packages built by Bazel and published to GitHub Packages, with npmjs required/optional/disabled by package policy. Supports an **opt-in, default-off `cache_backed`** shared-cache Bazel validation lane (cache-first; see below). |
-| `npm-publish.yml` | Pre-existing: Node package build + publish, callable only (no local tag/manual trigger). Ran GitHub-hosted until TIN-3914 moved all three jobs to `tinyland-nix`. |
+| `js-bazel-package.yml` | JS/TS packages built by Bazel: validation only. It publishes nothing since RU8 (see below); a caller that still requests publication fails closed with a migration error. Supports an **opt-in, default-off `cache_backed`** shared-cache Bazel validation lane (cache-first; see below). |
 | **`rust-bazel-application.yml`** | Opt-in/default-off native Darwin/Linux Rust application validation with Bazel-only rustfmt, clippy, build, unit, integration, and package targets; cache reads are runtime-attached and writes require an explicitly enabled protected push ref. |
 | **`spoke-ci.yml`** | Canonical spoke CI: secrets-scan, lanes-load, per-lane flywheel-bazel build/test, bazel-graph, optional Playwright. |
 | **`spoke-ci-v4.yml`** | Thin v4 action dispatcher: one checked-in action name, exact checkout, and one compiled `gf-action-client` invocation. Provider lifecycle and supply stay behind the client boundary. |
@@ -261,6 +260,33 @@ This release admits only the reviewed `tinyland-infra` group and exact Tinyland
 capability values; adding another owner group requires a reviewed source change
 and immutable release, not a caller-selected fallback.
 
+### No package publication (RU8)
+
+Operator ruling RU8, 2026-10-08: Bazel is the only distribution path for
+in-house packages (RU6), so nothing here publishes a node package.
+`npm-publish.yml` is deleted, and `js-bazel-package.yml` lost its
+`publish-npm` and `publish-github` jobs and its publish dry-runs. Its
+publication inputs stay declared so existing callers keep parsing, but a
+caller that would have published (`dry_run: false`, or `publish_on_tag: true`
+on a tag push, with an npmjs or GitHub Packages target set) now fails with a
+migration error rather than going green without a release. This is a prohibition, so like TIN-3914 it ships as a MAJOR
+change with no opt-out input (`AGENTS.md` rule 2). `just no-package-publish-check`
+keeps every workflow and action free of publish commands. Migration:
+[`docs/js-bazel-package.md`](docs/js-bazel-package.md#migrating-off-publication-ru8).
+Deprecating already-published npmjs and GitHub Packages versions is an operator
+action; nothing is unpublished.
+
+### Estate dependency updates (RU5)
+
+`templates/dependabot/estate-weekly.yml` (copy to `.github/dependabot.yml`) and
+the Renovate preset `templates/renovate/estate-weekly.json` (extend
+`github>xoxd-ai/ci-templates//templates/renovate/estate-weekly`) give each
+repository one grouped dependency PR per week. The exact, manifest-driven
+framework pins are excluded from automatic bumps, and the caller's concurrency
+group cancels runs that a newer push to that PR supersedes.
+`just dependency-update-template-check` holds both templates to that shape. See
+[`docs/dependency-updates.md`](docs/dependency-updates.md).
+
 ### No GitHub-hosted runners (TIN-3914)
 
 Operator ruling, 2026-08-19: *"we should NEVER have gh ubuntu runners in place
@@ -279,7 +305,7 @@ What moved:
 |---|---|---|---|
 | `spoke-ci.yml` | `secrets-scan`, `lanes-load`, `repo-manifest` | `ubuntu-latest` | `default_runner_class`, group-routed on opt-in |
 | `js-bazel-package.yml` | `resolve-runner` | `ubuntu-latest` | `tinyland-nix` |
-| `npm-publish.yml` | `build-and-test`, `publish-gpr`, `publish-npm` | `ubuntu-latest` | `tinyland-nix` |
+| `npm-publish.yml` (deleted by RU8) | `build-and-test`, `publish-gpr`, `publish-npm` | `ubuntu-latest` | `tinyland-nix` |
 | `rust-bazel-application.yml` | `trust-gate` | `ubuntu-24.04` | `tinyland-nix` |
 | `spoke-deploy-cloudflare-pages.yml` | `build` | `ubuntu-latest` | `tinyland-nix` |
 
@@ -290,6 +316,7 @@ consequence worth reading before you bump: publishes are now always self-hosted,
 and the pre-existing provenance guard only requests `npm publish --provenance`
 off self-hosted runners, so **npm provenance is no longer requested** and
 `npm_publish_provenance` is inert (the job says so with a `::warning::`).
+RU8 later removed publication altogether (see "No package publication" above).
 
 `scripts/lint-runs-on.rb` enforces the rule at author time. A GitHub-hosted
 label is a **FAIL**, not a warning, wherever it can be read statically: a bare

@@ -1,8 +1,14 @@
 # JS Bazel Package Workflow
 
-`js-bazel-package.yml` is the reusable workflow for JavaScript and TypeScript
-packages whose authoritative publish artifact is built by Bazel rather than
-published directly from the workspace tree.
+`js-bazel-package.yml` is the reusable validation workflow for JavaScript and
+TypeScript packages whose authoritative artifact is built by Bazel.
+
+**It publishes nothing (RU8, operator ruling 2026-10-08).** Bazel is the only
+distribution path for in-house packages: a release is a signed tag plus a
+registry module that consumers take as a `bazel_dep` and link with
+`npm_link_package` (RU6, RU9). The npmjs and GitHub Packages publish jobs and
+their publish dry-runs are gone. See [Migrating off publication
+(RU8)](#migrating-off-publication-ru8).
 
 It is meant for packages like:
 
@@ -14,20 +20,16 @@ It is meant for packages like:
 
 - makes runner intent explicit with `runner_mode`
 - makes workspace hygiene explicit with `workspace_mode`
-- makes publish authority explicit with `publish_mode`
-- makes npmjs authority explicit with `npm_publish_mode`
 - installs the workspace with pnpm
 - configures Attic and Bazel cache hints on self-hosted runners
 - optionally keeps legacy cleanup-based workspace behavior for migration
 - optionally stages validation work in an isolated scratch workspace
 - runs optional metadata, lint, typecheck, unit, and integration commands
 - builds the workspace artifact
-- validates the Bazel-built package via `npm pack --dry-run`
-- validates npm publish dry-runs against the Bazel artifact unless npmjs is
-  disabled
-- optionally validates GitHub Packages dry-runs after rewriting package metadata
-- uploads the Bazel-built package artifact for publish jobs
-- publishes from the same self-hosted runner class that validated the artifact
+- validates the Bazel-built package shape via `npm pack --dry-run` (a tarball
+  shape check only; nothing is uploaded to a registry)
+- uploads the Bazel-built package tarball as a workflow artifact for inspection
+- fails closed when a caller still requests a real publication (RU8)
 
 ## Contract inputs
 
@@ -51,12 +53,12 @@ Meaning:
   - since `v3.0.0` the unset default resolves to `["tinyland-nix"]` (it was
     `["ubuntu-latest"]`), and a GitHub-hosted label passed here is rejected
 - `shared`
-  - validate and publish on a documented shared GloriousFlywheel lane
+  - validate on a documented shared GloriousFlywheel lane
   - pass a non-empty `shared_runner_labels_json`; an empty value is rejected
     because it usually means the caller repo variable is missing
   - labels must include an org capability-class label
 - `repo_owned`
-  - validate and publish on a repo/owner-scoped runner registration path
+  - validate on a repo/owner-scoped runner registration path
   - workflow-facing labels still stay org capability classes
   - labels must include an org capability-class label
 
@@ -82,53 +84,30 @@ Meaning:
 - `persistent_compat`
   - keep the old cleanup-based model for long-lived self-hosted workspaces
 
-### `publish_mode`
+### Retired publication inputs (RU8)
 
-Allowed values:
+`publish_mode`, `npm_access`, `npm_publish_provenance`, `npm_publish_mode`,
+`npm_registry_url`, `github_package_name`, `github_package_registry`, `dry_run`
+and `publish_on_tag`, plus the `NPM_TOKEN` and `TINYLAND_GITHUB_PACKAGES_TOKEN`
+secrets, are still declared so a caller that passes them keeps parsing (an
+undeclared `workflow_call` input is a hard startup error). They no longer do
+anything, with one fail-closed exception and some warnings:
 
-- `same_runner`
+- A caller that **would have published** fails the validate job with an RU8
+  migration error. That is a publication request (`dry_run: false`, or
+  `publish_on_tag: true` on a `push` of a tag) together with a publication
+  target (`npm_publish_mode` other than `disabled`, or a non-empty
+  `github_package_name`).
+- A publication request with no target only warns: it published nothing
+  before RU8 either (for example `npm_publish_mode: disabled`, no
+  `github_package_name`, `dry_run: false`), so it is not broken now.
+- `publish_on_tag: true` off a tag push, and a non-empty
+  `github_package_name`, warn.
+- `publish_mode: hosted_exception` and an unknown `npm_publish_mode` are still
+  rejected exactly as before.
 
-`hosted_exception` was **retired by TIN-3914** (`v3.0.0`). It is rejected with a
-migration error rather than silently re-routed: a token-bearing publish job
-changing which machine it executes on should be an edit the caller makes, not
-one that happens to them. Delete the line — `same_runner` is the default.
-
-Meaning:
-
-- `same_runner`
-  - publish from the same runner class that validated the Bazel artifact
-
-**Consequence of the retirement:** publishes are now always self-hosted, and the
-publish step only passes `npm publish --provenance` when
-`runner.environment != 'self-hosted'`. That guard is unchanged, so
-`npm_publish_provenance` is now inert and **npm provenance is no longer
-requested**. The job emits a `::warning::` saying so rather than dropping the
-supply-chain claim silently. A package whose policy requires provenance should
-not bump its pin until a provenance-capable self-hosted path exists.
-
-### `npm_publish_mode`
-
-Allowed values:
-
-- `required`
-- `optional`
-- `disabled`
-
-Meaning:
-
-- `required`
-  - preserve the legacy npmjs contract
-  - validate npmjs dry-runs
-  - require `secrets.NPM_TOKEN` before real npmjs publication
-  - fail the workflow when npmjs publish fails
-- `optional`
-  - keep npmjs validation and publication as best-effort compatibility
-  - skip real npmjs publication when `secrets.NPM_TOKEN` is absent
-  - warn, but do not fail, when npmjs dry-run or publish fails
-- `disabled`
-  - skip npmjs dry-run validation and npmjs publication
-  - use this for Bazel-first packages whose release authority is GitHub
-    tag/release, GitHub Packages, and the Tinyland Bazel registry
+A caller that asked to publish is therefore told so, rather than going green
+without a release.
 
 ### `cache_backed`
 
@@ -210,16 +189,6 @@ source (TIN-2109). When both are empty the lane defaults to
 `shared-cache-backed`. This input has no effect on the default
 (non-cache-backed) path.
 
-### `github_package_name`
-
-`github_package_name` is the package coordinate used only for the GitHub
-Packages artifact. It may intentionally differ from the npmjs package name.
-
-GitHub Packages npm scopes are owner-bound, so the scope must match the GitHub
-account or organization that owns the package. For a `tinyland-inc/*` repository
-whose public npm package is `@tummycrypt/tinyland-auth`, use a GitHub Packages
-mirror name such as `@tinyland-inc/tinyland-auth`.
-
 ## Example: repo-owned capability-class package path
 
 ```yaml
@@ -240,7 +209,6 @@ jobs:
       runner_mode: repo_owned
       runner_labels_json: ${{ vars.PRIMARY_LINUX_RUNNER_LABELS_JSON }}
       workspace_mode: isolated
-      publish_mode: same_runner
       prepare_command: pnpm exec svelte-kit sync
       metadata_check_command: pnpm check:release-metadata
       lint_command: pnpm lint
@@ -251,10 +219,6 @@ jobs:
       package_check_command: pnpm check:package
       bazel_targets: "//:typecheck //:pkg //:test"
       package_dir: ./bazel-bin/pkg
-      github_package_name: "@jesssullivan/scheduling-kit"
-      npm_publish_mode: required
-      dry_run: true
-      publish_on_tag: true
     secrets: inherit
 ```
 
@@ -262,8 +226,8 @@ In that example, `PRIMARY_LINUX_RUNNER_LABELS_JSON` must resolve to a
 capability-shaped label set such as `["self-hosted","linux","tinyland-nix"]`
 or `["self-hosted","linux","great-falls-tool-bus-nix"]`.
 It must not resolve to a known repo-label fossil. Pull-request validation remains
-safe for forks because publish jobs are still gated by tag/workflow policy and
-GitHub does not expose protected publish secrets to untrusted fork PRs.
+safe for forks because the workflow has no publish jobs and holds no publish
+secrets; the only token it reads is the read-only registry fetch credential.
 
 ## Example: capability-class template consumer
 
@@ -282,17 +246,12 @@ jobs:
       runner_mode: repo_owned
       runner_labels_json: '["tinyland-nix"]'
       workspace_mode: isolated
-      # publish_mode defaults to same_runner; hosted_exception is retired
       lint_command: pnpm lint
       typecheck_command: pnpm typecheck
       unit_test_command: pnpm test
       build_command: pnpm build
       bazel_targets: "//:pkg"
       package_dir: ./bazel-bin/pkg
-      github_package_name: "@tinyland-inc/tinyland-auth-redis"
-      npm_publish_mode: disabled
-      dry_run: true
-      publish_on_tag: true
 ```
 
 ## Notes
@@ -326,33 +285,23 @@ jobs:
   `shared_runner_labels_json`, including `compat`, where labels were previously
   unvalidated. There is no hosted lane left to degrade to, so a hosted label is
   a routing error, not a fallback.
-- `dry_run: true` keeps pull requests and branch pushes in validation-only mode.
-  Set `publish_on_tag: true` in package repositories that should publish the
-  Bazel artifact when the caller workflow is triggered by a `push` to `refs/tags/v*`.
-  The caller workflow must include an `on.push.tags` trigger. npmjs publication
-  requires `secrets.NPM_TOKEN` only when `npm_publish_mode=required`; Bazel-first
-  packages should use `optional` or `disabled` when GitHub Packages and the
-  Bazel registry are the release authority.
 - self-hosted jobs now call `nix-setup`, so Attic and Bazel cache hints are
   explicit instead of incidental runner state.
 - `workspace_mode=isolated` is the preferred contract for downstream pilots.
 - `cleanup_paths` is still available, but only applies to
   `workspace_mode=persistent_compat`.
-- publish jobs always extract into an isolated temp directory, even when the
-  validation workspace stays in compatibility mode.
-- npmjs publication requests provenance only off self-hosted runners. Since
-  TIN-3914 every publish is self-hosted, so provenance is never requested and
-  `npm_publish_provenance` is inert; the job warns instead of dropping the claim
-  silently.
-- real publish jobs are idempotent for already-published package versions. After
-  extracting the Bazel artifact, the npmjs and GitHub Packages jobs check
-  whether the exact `name@version` already exists in the target registry and
-  skip only that duplicate-version case. Registry lookup failures or absent
-  versions still fall through to `npm publish` so permission and package errors
-  remain visible unless `npm_publish_mode=optional`.
-- npm publish dry-run validation also treats npm's duplicate-version rejection
-  as an idempotent pass. Newer npm versions may reject `npm publish --dry-run`
-  for an already-published version even though the preceding `npm pack`
-  validation proved the package artifact shape. Use `npm_publish_mode=disabled`
-  to skip npmjs dry-run validation entirely for Bazel-first packages with no
-  npmjs release target.
+
+## Migrating off publication (RU8)
+
+1. Bump the pin to the ci-templates release that carries this change.
+2. Delete `dry_run`, `publish_on_tag`, `publish_mode`, every `npm_*` and
+   `github_package_*` input, and stop passing `NPM_TOKEN` /
+   `TINYLAND_GITHUB_PACKAGES_TOKEN`. Leaving them is harmless except as noted
+   above, but they are scheduled for removal at the next major.
+3. Release by signed tag and a registry module in `xoxd-ai/bazel-registry`.
+   Consumers take the module as a `bazel_dep` and link it with
+   `npm_link_package(name = "node_modules/@tummycrypt/<pkg>", src =
+   "@<module>//:pkg")`; `xoxd-ai/site.scaffold` is the reference wiring.
+4. Already-published npmjs and GitHub Packages versions are deprecated with a
+   pointer to the Bazel module and are never unpublished (RU8). That is an
+   operator action, not something this workflow does.
