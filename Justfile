@@ -9,7 +9,7 @@ _default:
     @just --list --unsorted
 
 # Run all repository-local validation.
-check: yaml-parse json-parse vendored-schema-provenance-check repo-manifest-validate manifest-validate-selftest internal-refs-check js-bazel-runner-contract-check rust-bazel-application-contract-check flywheel-reapi-proof-contract-check restricted-workflow-contract-check runner-group-contract-selftest runner-group-contract-check required-gate-contract-selftest required-gate-contract-check repo-role-census-contract-selftest repo-role-census-contract-check endpoint-free-check ci-cached-endpoint-free-check cache-backed-optin-contract-check cache-contract-selftest secrets-scan-dir lint-runs-on-selftest lint-runs-on-check no-hosted-runners-selftest no-hosted-runners-check
+check: yaml-parse json-parse vendored-schema-provenance-check repo-manifest-validate manifest-validate-selftest internal-refs-check js-bazel-runner-contract-check rust-bazel-application-contract-check flywheel-reapi-proof-contract-check restricted-workflow-contract-check runner-group-contract-selftest runner-group-contract-check required-gate-contract-selftest required-gate-contract-check repo-role-census-contract-selftest repo-role-census-contract-check endpoint-free-check ci-cached-endpoint-free-check cache-backed-optin-contract-check cache-contract-selftest secrets-scan-dir lint-runs-on-selftest lint-runs-on-check no-hosted-runners-selftest no-hosted-runners-check no-package-publish-selftest no-package-publish-check dependency-update-template-selftest dependency-update-template-check
     @echo "ci-templates checks passed."
 
 # Parse all GitHub workflow/action YAML with Ruby's stdlib YAML parser.
@@ -36,6 +36,28 @@ lint-runs-on-check:
 # because one embeds `ubuntu-2`) and let `Ubuntu-Latest` through entirely.
 no-hosted-runners-check:
     cd {{ root }} && ruby scripts/no-hosted-runners.rb --root {{ root }}
+
+# RU8 backstop (operator ruling 2026-10-08): no shared workflow or composite
+# action publishes a node package (npm/pnpm/yarn publish, changesets, lerna,
+# semantic-release) or references the retired npm-publish.yml. Bazel is the only
+# distribution path for in-house packages.
+no-package-publish-check:
+    cd {{ root }} && ruby scripts/no-package-publish.rb --root {{ root }}
+
+# Prove the RU8 backstop catches each publish form and ignores comments,
+# `npm pack --dry-run` and prose about publication.
+no-package-publish-selftest:
+    cd {{ root }} && ruby scripts/no-package-publish.rb --self-test
+
+# RU5: the estate Dependabot and Renovate templates yield one grouped PR per
+# repository per week and exclude every exact, manifest-driven framework pin.
+dependency-update-template-check:
+    cd {{ root }} && ruby scripts/dependency-update-template-contract.rb --root {{ root }}
+
+# Mutate the shipped templates (second group, split majors, dropped or narrowed
+# framework pin, ...) and prove the contract rejects each mutation.
+dependency-update-template-selftest:
+    cd {{ root }} && ruby scripts/dependency-update-template-contract.rb --root {{ root }} --self-test
 
 # Prove the backstop's classifier on the exact cases that broke its predecessor:
 # mixed case, both third-party fleets, schema consts, and comment-only prose.

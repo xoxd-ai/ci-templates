@@ -5,7 +5,51 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING (RU8, operator ruling 2026-10-08): no package publication.**
+  Bazel is the only distribution path for in-house packages (RU6), so the
+  shared templates publish nothing. `npm-publish.yml` and
+  `docs/npm-publish.md` are deleted. `js-bazel-package.yml` loses its
+  `publish-npm` and `publish-github` jobs, its npm and GitHub Packages publish
+  dry-runs, and the now-unused `publish_runner_labels_json` output of
+  `resolve-runner`. Its publication inputs (`publish_mode`, `npm_*`,
+  `github_package_*`, `dry_run`, `publish_on_tag`) and the `NPM_TOKEN` /
+  `TINYLAND_GITHUB_PACKAGES_TOKEN` secrets stay declared and inert so existing
+  callers keep parsing. A caller that would have published (`dry_run: false`,
+  or `publish_on_tag: true` on a tag push, with `npm_publish_mode` not
+  `disabled` or a `github_package_name` set) fails in `validate` with a
+  migration error instead of going green without a release. A request with
+  no publication target, a non-empty `github_package_name`, or
+  `publish_on_tag: true` on any other event only warns. `npm pack --dry-run` shape validation and the `bazel-pkg` artifact
+  upload are unchanged. Like TIN-3914, this is a prohibition with no opt-out
+  input, so it needs a MAJOR release under `AGENTS.md` rule 2: it goes into
+  v6.0.0 if it lands before that cut, otherwise v7.0.0. The release seat
+  decides. New `just no-package-publish-check` and `-selftest` keep every
+  workflow and action free of npm, pnpm and yarn publish, changesets, lerna,
+  semantic-release and references to `npm-publish.yml`. Already-published
+  npmjs and GitHub Packages versions are deprecated by the operator, never
+  unpublished.
+
 ### Added
+
+- **RU5 estate dependency-update templates.**
+  `templates/dependabot/estate-weekly.yml` and the Renovate preset
+  `templates/renovate/estate-weekly.json` give each repository one grouped
+  dependency PR per week. Dependabot uses a single `multi-ecosystem-groups`
+  entry that every ecosystem joins; Renovate uses one `groupName`, does not
+  split majors, and keeps lock file maintenance off. Every version of the 17
+  packages in the estate version manifest (site.scaffold
+  `estate/versions.json`, #224) is ignored: Kit, Svelte, Vite,
+  vite-plugin-svelte, the four adapters, typescript, vitest and its two
+  @vitest companions, @playwright/test and playwright,
+  effect, and both Skeleton packages. ci-templates majors are not bumped.
+  `docs/dependency-updates.md` documents the caller concurrency group that
+  cancels runs a newer push supersedes. New
+  `just dependency-update-template-check` and `-selftest` enforce the shape
+  and reject seven Dependabot and five Renovate mutations. This repository's
+  own `.github/dependabot.yml` now groups GitHub Actions majors into the
+  same weekly PR. No workflow or action changes.
 
 - **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub
   reports a job skipped by an unmet `needs:` as a neutral check that

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Estate dependency-update preset (RU5, operator ruling 2026-10-08): one grouped PR per repository per week; exact, manifest-driven framework pins excluded. Extend with github>xoxd-ai/ci-templates//templates/renovate/estate-weekly",
+  "timezone": "Etc/UTC",
+  "schedule": [
+    "* 6-11 * * 1"
+  ],
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 0,
+  "separateMajorMinor": false,
+  "separateMultipleMajor": false,
+  "separateMinorPatch": false,
+  "rebaseWhen": "behind-base-branch",
+  "commitMessagePrefix": "chore(deps):",
+  "packageRules": [
+    {
+      "description": "Every update joins the single weekly group",
+      "matchPackageNames": [
+        "*"
+      ],
+      "groupName": "estate weekly dependencies",
+      "groupSlug": "estate-weekly"
+    },
+    {
+      "description": "Estate exact framework pins (RU1/RU5): the packages of xoxd-ai/site.scaffold estate/versions.json, moved only by that manifest",
+      "matchPackageNames": [
+        "@sveltejs/kit",
+        "svelte",
+        "vite",
+        "@sveltejs/vite-plugin-svelte",
+        "@sveltejs/adapter-auto",
+        "@sveltejs/adapter-cloudflare",
+        "@sveltejs/adapter-node",
+        "@sveltejs/adapter-static",
+        "typescript",
+        "vitest",
+        "@vitest/browser-playwright",
+        "@vitest/coverage-v8",
+        "@playwright/test",
+        "playwright",
+        "effect",
+        "@skeletonlabs/skeleton",
+        "@skeletonlabs/skeleton-svelte"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "ci-templates majors are an estate re-pin decision, not a weekly bump",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "xoxd-ai/ci-templates*"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": false
+  }
+}

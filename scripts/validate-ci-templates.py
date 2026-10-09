@@ -326,9 +326,10 @@ def check_js_bazel_package_runner_contract() -> int:
         "`repo_owned` is a trust and registration boundary",
         "workflow-facing labels still stay org capability classes",
         "It must not resolve to a known repo-label fossil.",
-        "forks because publish jobs are still gated by tag/workflow policy",
+        "forks because the workflow has no publish jobs",
     ]
     forbidden_docs_snippets = [
+        "forks because publish jobs are still gated by tag/workflow policy",
         "- validate and publish on repo-specific runner labels",
         "repo-owned dedicated lane",
     ]

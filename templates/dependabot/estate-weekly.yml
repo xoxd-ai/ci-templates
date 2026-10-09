@@ -1,0 +1,66 @@
+# Estate dependency-update template (RU5, operator ruling 2026-10-08).
+# Copy to .github/dependabot.yml in a consuming repository.
+# Docs: https://github.com/xoxd-ai/ci-templates/blob/main/docs/dependency-updates.md
+#
+# One grouped pull request per repository per week. Every ecosystem below joins
+# the single multi-ecosystem group, so npm and GitHub Actions updates (and any
+# ecosystem you add) arrive together. Dependabot keeps one branch for the group
+# and rebases it in place when newer versions appear, so the PR is superseded,
+# never duplicated; the caller workflow's concurrency group cancels the stale
+# run (see the docs).
+#
+# Framework pins are exact and manifest-driven (RU1/RU5): they move only when
+# the estate version manifest (xoxd-ai/site.scaffold estate/versions.json)
+# moves, so Dependabot ignores every version of them. Keep this list identical
+# to the manifest's packages; `just dependency-update-template-check` in ci-templates enforces
+# that the two templates agree.
+version: 2
+
+multi-ecosystem-groups:
+  estate-weekly:
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    commit-message:
+      prefix: "chore(deps)"
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    multi-ecosystem-group: "estate-weekly"
+    patterns:
+      - "*"
+    ignore:
+      # BEGIN estate exact framework pins (RU1/RU5): the 17 keys of
+      # xoxd-ai/site.scaffold estate/versions.json
+      - dependency-name: "@sveltejs/kit"
+      - dependency-name: "svelte"
+      - dependency-name: "vite"
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+      - dependency-name: "@sveltejs/adapter-auto"
+      - dependency-name: "@sveltejs/adapter-cloudflare"
+      - dependency-name: "@sveltejs/adapter-node"
+      - dependency-name: "@sveltejs/adapter-static"
+      - dependency-name: "typescript"
+      - dependency-name: "vitest"
+      - dependency-name: "@vitest/browser-playwright"
+      - dependency-name: "@vitest/coverage-v8"
+      - dependency-name: "@playwright/test"
+      - dependency-name: "playwright"
+      - dependency-name: "effect"
+      - dependency-name: "@skeletonlabs/skeleton"
+      - dependency-name: "@skeletonlabs/skeleton-svelte"
+      # END estate exact framework pins
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    multi-ecosystem-group: "estate-weekly"
+    patterns:
+      - "*"
+    ignore:
+      # ci-templates majors are an estate re-pin decision, not a weekly bump.
+      - dependency-name: "xoxd-ai/ci-templates*"
+        update-types:
+          - "version-update:semver-major"
