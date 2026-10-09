@@ -34,7 +34,6 @@ EXACT_PINS = %w[
   @sveltejs/adapter-node
   @sveltejs/adapter-static
   typescript
-  @typescript/native
   vitest
   @vitest/browser-playwright
   @vitest/coverage-v8

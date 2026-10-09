@@ -33,7 +33,7 @@ updates:
     patterns:
       - "*"
     ignore:
-      # BEGIN estate exact framework pins (RU1/RU5): the 18 keys of
+      # BEGIN estate exact framework pins (RU1/RU5): the 17 keys of
       # xoxd-ai/site.scaffold estate/versions.json
       - dependency-name: "@sveltejs/kit"
       - dependency-name: "svelte"
@@ -44,7 +44,6 @@ updates:
       - dependency-name: "@sveltejs/adapter-node"
       - dependency-name: "@sveltejs/adapter-static"
       - dependency-name: "typescript"
-      - dependency-name: "@typescript/native"
       - dependency-name: "vitest"
       - dependency-name: "@vitest/browser-playwright"
       - dependency-name: "@vitest/coverage-v8"

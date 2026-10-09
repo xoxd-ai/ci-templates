@@ -34,15 +34,14 @@ self-test proves that each mutation which would break them is rejected.
   manifest (`xoxd-ai/site.scaffold` `estate/versions.json`, #224) is ignored:
   `@sveltejs/kit`, `svelte`, `vite`, `@sveltejs/vite-plugin-svelte`, the four
   `@sveltejs/adapter-*` packages (auto, cloudflare, node, static), `typescript`,
-  `@typescript/native`, `vitest`, `@vitest/browser-playwright`,
-  `@vitest/coverage-v8`, `@playwright/test`, `playwright`, `effect`,
-  `@skeletonlabs/skeleton` and `@skeletonlabs/skeleton-svelte`.
-  RU13 (operator ruling 2026-10-08) makes TypeScript 7.0.2 itself the
-  `typescript` package. `@typescript/native` (the TS 7 alias from the
-  superseded U1-probe TS 6 fallback) stays ignored while the manifest still
-  lists it, so no repo that carries it mid-migration gets a bot bump; drop it
-  here in the same PR that drops it from the manifest. `svelte-check` and
-  the lint and format stack keep ranges and still update weekly.
+  `vitest`, `@vitest/browser-playwright`, `@vitest/coverage-v8`,
+  `@playwright/test`, `playwright`, `effect`, `@skeletonlabs/skeleton` and
+  `@skeletonlabs/skeleton-svelte`. RU13 (operator ruling 2026-10-08) makes
+  TypeScript 7.0.2 itself the `typescript` package, and the manifest lists
+  `@typescript/native` (the superseded U1-probe TS 6 fallback alias) as
+  forbidden, so it is not on this list: the manifest drift check, not the
+  update bot, removes it from a repo. `svelte-check` and the lint and format
+  stack keep ranges and still update weekly.
 - **ci-templates majors are not bumped.** Moving to a new ci-templates major is
   an estate re-pin decision, so only minor and patch updates are proposed.
 

@@ -38,11 +38,11 @@ Versioning: [SemVer 2.0](https://semver.org/).
   `templates/renovate/estate-weekly.json` give each repository one grouped
   dependency PR per week. Dependabot uses a single `multi-ecosystem-groups`
   entry that every ecosystem joins; Renovate uses one `groupName`, does not
-  split majors, and keeps lock file maintenance off. Every version of the 18
+  split majors, and keeps lock file maintenance off. Every version of the 17
   packages in the estate version manifest (site.scaffold
   `estate/versions.json`, #224) is ignored: Kit, Svelte, Vite,
-  vite-plugin-svelte, the four adapters, typescript and @typescript/native,
-  vitest and its two @vitest companions, @playwright/test and playwright,
+  vite-plugin-svelte, the four adapters, typescript, vitest and its two
+  @vitest companions, @playwright/test and playwright,
   effect, and both Skeleton packages. ci-templates majors are not bumped.
   `docs/dependency-updates.md` documents the caller concurrency group that
   cancels runs a newer push supersedes. New
