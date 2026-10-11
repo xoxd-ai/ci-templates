@@ -5,6 +5,26 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+### Deprecated
+
+- **GloriousFlywheel v3 surfaces (2026-10-11; TIN-5447 Q-102, R109, R246).**
+  `spoke-ci.yml`, `spoke-ci-restricted.yml`, the `flywheel-bazel`,
+  `lanes-load`, `cache-attachment-validate`, `lane-status-check` and
+  `flywheel-reapi-proof` actions, and the `nix-setup` Bazel export are
+  deprecated for new adoption. Notice only: comment headers, action
+  descriptions and README text change; no job, input, default or `runs-on`
+  moves, so every caller renders identically. `spoke-ci.yml`'s
+  `legacy_sha256` in `scripts/restricted-workflow-contract.rb` is re-recorded
+  for the comment header. `spoke-ci-v4.yml` is unchanged and is documented as
+  a retained transitional thin edge, not an onboarding step.
+- **Transitional v3-shaped reusable workflows (2026-10-11; TIN-5447 R280,
+  R281, R283, comment `0054f373`).** `rust-bazel-application.yml` (private
+  runner group plus direct remote cache) and `js-bazel-package.yml` (label
+  routing plus opt-in direct cache) carry a transitional comment header: new
+  repositories must not adopt them, and the v4 path is the organization App.
+  Header only; no job, input, default or `runs-on` moves. Neither file is
+  digest-pinned by a repository contract.
+
 ### Added
 
 - **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub

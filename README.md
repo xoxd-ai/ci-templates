@@ -11,12 +11,28 @@ Tinyland CI house style.
 > line under TIN-2130. Runtime lifecycle remains owner-overlay authority; this
 > repository supplies CI and no receiver, apply, or preview fallback.
 
+> **GloriousFlywheel v3 surfaces are deprecated (2026-10-11).** New
+> repositories must not adopt them: `spoke-ci.yml`, `spoke-ci-restricted.yml`,
+> `rust-bazel-application.yml`'s direct-cache path, the `flywheel-bazel`,
+> `lanes-load`, `cache-attachment-validate`, `lane-status-check` and
+> `flywheel-reapi-proof` actions, the `nix-setup` Bazel export, `bazelrc/*`
+> (`--config=flywheel`, `ci-cached`), `cache_backed` and `BAZEL_REMOTE_*`, and
+> every `runs-on: tinyland-*` label route. Existing callers keep their immutable
+> pins and behaviour is unchanged; they cut over by the GloriousFlywheel
+> migration guide (`docs/guides/v3-to-v4-migration.md` in
+> `xoxd-ai/GloriousFlywheel`). The v4 target has no adopter workflow YAML: the
+> organization's own App turns pushes and pull requests into HeadWork and the
+> cell posts check runs (Q-102). `spoke-ci-v4.yml` is a retained transitional
+> thin edge for callers already on it, not an onboarding step. Rulings: Q-102,
+> R109, R246 (TIN-5447).
+
 Spokes spawned from `tinyland-inc/site.scaffold` consume this repo for:
 
 - **Spoke CI** (lint, type-check, build, test, Bazel graph, optional
-  Playwright) via `spoke-ci.yml` reusable workflow.
+  Playwright) via `spoke-ci.yml` reusable workflow (v3, deprecated).
 - **Breaking v4 action-fabric CI** via `spoke-ci-v4.yml`: one action-only plan
-  and one compiled-client dispatch boundary.
+  and one compiled-client dispatch boundary (transitional thin edge, not an
+  onboarding step).
 - **Static projection snapshot refresh** via `spoke-pulse-ingest.yml`.
 - **GloriousFlywheel REAPI binding** via the `flywheel-bazel` composite
   action.
@@ -32,6 +48,10 @@ The full contract spokes conform to is
 [`tinyland-inc/site.scaffold/docs/CI-SCHEMA.md`](https://raw.githubusercontent.com/tinyland-inc/site.scaffold/main/docs/CI-SCHEMA.md).
 
 ## Quick start
+
+> The example below is the deprecated v3 caller, kept for existing
+> consumers. New repositories must not adopt it; see the deprecation notice
+> above.
 
 ```yaml
 # .github/workflows/ci.yml
@@ -746,8 +766,8 @@ fallback (no silent degrade to a GitHub-hosted build), and pins the contract-scr
 fetch fallback to an immutable releasing tag. It also exports
 `GF_FLYWHEEL_PROFILE_STATE` from the resolved substrate mode so consumer
 `flywheel-doctor` / `flywheel-verify` tooling sees the same machine-readable
-attachment state as CI. Copy the single **lace-up** pattern in
-[`AGENTS.md`](AGENTS.md) to enroll. See
+attachment state as CI. This is a deprecated v3 surface; new repositories
+must not enroll through it (see the deprecation notice at the top). See
 [`docs/js-bazel-package.md`](docs/js-bazel-package.md) (`cache_backed`,
 `substrate_mode`) for the consumer-facing details.
 

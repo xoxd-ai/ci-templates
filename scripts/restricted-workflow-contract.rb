@@ -114,7 +114,11 @@ SPECS = {
     # `always()` and fails unless every upstream job succeeded. That job
     # is the reviewed legacy-only delta named in `legacy_only_jobs` below,
     # and `just required-gate-contract-check` proves its shape and verdict.
-    legacy_sha256: "cd9a1e67d0e49e8ceb2b2be2759f56dae366eb3cb4f2e9b4bf46c451885dc496",
+    # Re-recorded for TIN-5447 (v3 deprecation notice). Previously
+    # cd9a1e67… (TIN-2611). The only change is a five-line YAML comment
+    # header above `name:`; no job, input, default or runs-on moves, so every
+    # caller renders identically.
+    legacy_sha256: "129aa033bca747a755df3ebe03901b5a50950a2937ce40fcd74cb224401640c0",
     # Jobs present only in the legacy workflow, stripped from the legacy copy
     # before the structural compare. The restricted variant forbids status
     # functions such as `always()` downstream of its trust gate, so the

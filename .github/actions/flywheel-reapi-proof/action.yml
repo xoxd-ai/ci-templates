@@ -5,6 +5,10 @@ description: |
   authority and must publish artifact evidence with remote_processes > 0 and a
   worker_image_digest before a target class is considered proved.
 
+  Deprecated (2026-10-11): a GloriousFlywheel v3 surface. New repositories
+  must not adopt it; existing callers keep their immutable pins and released
+  behavior is unchanged. See the README deprecation notice.
+
 inputs:
   gf_repository:
     description: GloriousFlywheel repository.

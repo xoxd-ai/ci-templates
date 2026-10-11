@@ -1,3 +1,8 @@
+# DEPRECATED (GloriousFlywheel v3, 2026-10-11). This label-routed workflow is
+# v3 retirement inventory. New repositories must not adopt it. Existing callers
+# keep their immutable pins, behaviour is unchanged, and they cut over by the
+# GloriousFlywheel v3-to-v4 migration guide. Rulings: Q-102, R109, R246
+# (TIN-5447).
 name: spoke-ci
 on:
   workflow_call:
