@@ -6,6 +6,10 @@ description: |
 
   Contract: tinyland-inc/site.scaffold/docs/CI-SCHEMA.md §8.
 
+  Deprecated (2026-10-11): a GloriousFlywheel v3 surface. New repositories
+  must not adopt it; existing callers keep their immutable pins and released
+  behavior is unchanged. See the README deprecation notice.
+
 inputs:
   commit_sha:
     description: Commit SHA to post the status against.

@@ -1,7 +1,10 @@
 name: cache-attachment-validate
 description: >-
   Run the release-vendored cache attachment contract without fetching mutable
-  source from the network.
+  source from the network. Deprecated (2026-10-11): a GloriousFlywheel v3
+  surface. New repositories must not adopt it; existing callers keep their
+  immutable pins and released behavior is unchanged. See the README
+  deprecation notice.
 
 inputs:
   substrate_mode:

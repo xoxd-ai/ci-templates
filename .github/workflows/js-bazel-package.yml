@@ -1,3 +1,9 @@
+# TRANSITIONAL (GloriousFlywheel v3 shape, 2026-10-11). This reusable workflow
+# routes by runner labels and offers an opt-in direct remote cache, the v3
+# adoption shape. New repositories must not adopt it; the v4 path is the
+# organization App (cell-posted check runs, no adopter workflow YAML). Existing
+# callers keep their immutable pins and behaviour is unchanged. Rulings: Q-102,
+# R109, R280, R281, R283 (TIN-5447 7234a74a, 0054f373).
 name: JS Bazel Package
 
 on:
