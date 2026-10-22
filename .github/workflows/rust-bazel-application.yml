@@ -15,6 +15,17 @@ on:
           tinyland-infra; no hosted native fallback exists.
         type: string
         default: ""
+      allow_public_same_repo_caller:
+        description: >-
+          Explicit, reviewable opt-in for a PUBLIC caller repository (issue
+          #189). True admits a public caller only for push, merge_group, and a
+          pull_request whose head repository is the caller repository. Fork
+          pull requests, pull_request_target, schedule, and workflow_dispatch
+          stay refused for public callers, and runner-label admission is
+          unchanged. Must be true or false; has no effect for private
+          callers. False refuses every public caller, as before.
+        type: boolean
+        default: false
       platform_matrix_json:
         description: >-
           Exact native platform matrix. Each entry requires name, os (darwin or
@@ -119,6 +130,7 @@ jobs:
           event_name: ${{ github.event_name }}
           repository: ${{ github.repository }}
           head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          allow_public_same_repo_caller: ${{ inputs.allow_public_same_repo_caller }}
           timeout_minutes: ${{ inputs.timeout_minutes }}
           max_parallel: ${{ inputs.max_parallel }}
           runner_group: ${{ inputs.runner_group }}

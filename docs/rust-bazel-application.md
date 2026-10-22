@@ -44,10 +44,11 @@ The pre-scheduling contract admits only the owner group's shared `nix` or
 `nix-heavy` capability and rejects hosted, bare `self-hosted`, cross-owner, and
 repo-shaped runner labels; recursive target patterns including `:all` and
 `:all-targets`; shorthand package labels; duplicate labels or platforms; and
-matrices larger than four lanes. It also refuses public repositories, fork pull
-requests, and `pull_request_target`. The lane contract then rejects an
-OS/architecture mismatch between the requested lane and assigned runner and a
-`.bazelversion` outside the requested major.
+matrices larger than four lanes. It also refuses fork pull requests and
+`pull_request_target`, and refuses public repositories unless the caller opts
+in with `allow_public_same_repo_caller: true` (see below). The lane contract
+then rejects an OS/architecture mismatch between the requested lane and
+assigned runner and a `.bazelversion` outside the requested major.
 The default required major is Bazel 9. The root `.bazelversion`,
 `MODULE.bazel`, `MODULE.bazel.lock`, `Cargo.lock`, and
 `cargo-bazel-lock.json` must all be regular tracked files. `bazelisk mod deps
@@ -110,12 +111,30 @@ provides and that GitHub assigns natively. It does not claim a four-platform
 matrix, cross-built release parity, or any GloriousFlywheel remote-execution
 support.
 
-Public repositories, `pull_request_target`, and fork pull requests fail in the
-admission job; they never receive a private runner, caller checkout, or cache
-credential. A private same-repository pull request may use the native lanes. A
-public/open-source product needs a separate fork-safe build design; it must not
-route public events into this native private-runner workflow, and since TIN-3914
-that separate design cannot be a GitHub-hosted lane in this repository.
+`pull_request_target` and fork pull requests fail in the admission job; they
+never receive a private runner, caller checkout, or cache credential. A private
+same-repository pull request may use the native lanes.
+
+A public repository fails in the admission job by default. A public caller may
+opt in with the reviewable boolean `allow_public_same_repo_caller: true`
+(default `false`, issue #189). The opt-in admits only `push`, `merge_group`, and
+a `pull_request` whose head repository equals the caller repository. Fork pull
+requests, `pull_request_target`, `schedule`, and `workflow_dispatch` stay
+refused for a public caller, and runner-label admission is unchanged: hosted,
+bare `self-hosted`, cross-owner, and repo-shaped labels are refused for every
+caller. The input must be `true` or `false`; it has no effect for private
+callers. The opt-in lives in the caller's own workflow file, so turning it on
+is a reviewed change there.
+
+Two facts follow from the opt-in. First, a `merge_group` run executes whatever
+a maintainer queued, including a fork pull request's commits; queueing is the
+review boundary, so a public caller should require approving review before a
+pull request may enter its merge queue. Second, GitHub only schedules a public
+repository's jobs on a self-hosted runner group that allows public
+repositories. The `tinyland-infra` group, which also serves the bare
+`tinyland-nix` admission label, already admits public repositories: every
+executed job of the public `xoxd-ai/agent-switchboard` run 39844721765 ran in
+that group. Hosted fallback is still not available (TIN-3914).
 
 ## GloriousFlywheel cache policy
 

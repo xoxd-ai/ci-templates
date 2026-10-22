@@ -7,6 +7,25 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Added
 
+- **Issue #189 public same-repository callers for
+  `rust-bazel-application.yml`.** New boolean input
+  `allow_public_same_repo_caller` (default `false`). When true, the
+  `trust-gate` preflight admits a public caller repository for `push`,
+  `merge_group`, and a `pull_request` whose head repository equals the caller
+  repository. Fork pull requests, `pull_request_target`, `schedule`, and
+  `workflow_dispatch` stay refused for public callers; runner-label admission
+  (no hosted, bare `self-hosted`, cross-owner, or repo-shaped labels) is
+  unchanged. The input must be true or false; it has no effect for private
+  callers. Unset, every admission verdict
+  is unchanged; the only visible difference is that the public-caller refusal
+  message now names the opt-in. The `rust-bazel-preflight` composite gains
+  the matching optional input. The contract self-test covers public push,
+  merge_group, and same-repository PR admission; fork PR, PR-target, schedule, dispatch, and
+  hosted-label refusal; public-without-opt-in refusal; and private callers
+  unchanged with the input either way. The release PR must raise this
+  workflow's internal self-refs and `RUST_BAZEL_RELEASE` to the new exact
+  version, or the shipped workflow keeps calling the v5.1.1 preflight.
+
 - **TIN-2611 fail-closed `all-required` gate on `spoke-ci.yml`.** GitHub
   reports a job skipped by an unmet `needs:` as a neutral check that
   satisfies a required status check of the same name. A failed

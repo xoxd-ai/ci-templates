@@ -1005,7 +1005,12 @@ def check_rust_bazel_application_contract() -> int:
         print(error, file=sys.stderr)
         ok = False
 
-    default_false_inputs = ("enabled", "cache_enabled", "trusted_cache_upload")
+    default_false_inputs = (
+        "enabled",
+        "cache_enabled",
+        "trusted_cache_upload",
+        "allow_public_same_repo_caller",
+    )
     for input_name in default_false_inputs:
         block = re.search(
             rf"\n      {re.escape(input_name)}:\n(?:.*\n)*?        default: (\w+)\n",
@@ -1026,6 +1031,7 @@ def check_rust_bazel_application_contract() -> int:
         "runs-on: tinyland-nix",
         "repository_private: ${{ github.event.repository.private }}",
         "head_repository: ${{ github.event.pull_request.head.repo.full_name || '' }}",
+        "allow_public_same_repo_caller: ${{ inputs.allow_public_same_repo_caller }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
         "rust-bazel-preflight@v5.1.1",
@@ -1102,6 +1108,7 @@ def check_rust_bazel_application_contract() -> int:
         "cache_upload_allowed",
         "validate_cache_authority",
         "validate_caller_admission",
+        'PUBLIC_SAME_REPO_EVENTS = {"merge_group", "pull_request", "push"}',
         "bounded_integer",
         "validate_matrix_contract",
         'target_name in {"all", "all-targets"}',
