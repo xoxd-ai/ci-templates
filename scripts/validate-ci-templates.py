@@ -16,7 +16,7 @@ from collections import Counter
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUST_BAZEL_RELEASE = "v5.1.1"
+RUST_BAZEL_RELEASE = "v5.2.0"
 RUST_BAZEL_CHECKOUT_SHA = "d23441a48e516b6c34aea4fa41551a30e30af803"
 RUBY_USES_SCRIPT = r"""
 require "json"
@@ -1034,8 +1034,8 @@ def check_rust_bazel_application_contract() -> int:
         "allow_public_same_repo_caller: ${{ inputs.allow_public_same_repo_caller }}",
         "timeout_minutes: ${{ inputs.timeout_minutes }}",
         "max_parallel: ${{ inputs.max_parallel }}",
-        "rust-bazel-preflight@v5.1.1",
-        "rust-bazel-binary-custody@v5.1.1",
+        "rust-bazel-preflight@v5.2.0",
+        "rust-bazel-binary-custody@v5.2.0",
         "steps.bazelisk-custody.outputs.path",
         "needs: trust-gate",
         'default: "[]"',
@@ -1044,8 +1044,8 @@ def check_rust_bazel_application_contract() -> int:
         "labels: ${{ matrix.lane.runner_labels }}",
         "lane_name: ${{ matrix.lane.name }}",
         "actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
-        "rust-bazel-contract@v5.1.1",
-        "cache-attachment-validate@v5.1.1",
+        "rust-bazel-contract@v5.2.0",
+        "cache-attachment-validate@v5.2.0",
         "github.ref_protected",
         "trusted_cache_upload: ${{ inputs.trusted_cache_upload }}",
         "cache_substrate_mode: ${{ inputs.cache_substrate_mode }}",

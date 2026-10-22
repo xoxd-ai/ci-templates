@@ -5,6 +5,8 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ## [Unreleased]
 
+## [5.2.0] — 2026-10-22
+
 ### Added
 
 - **Issue #189 public same-repository callers for
