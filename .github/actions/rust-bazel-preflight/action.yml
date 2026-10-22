@@ -16,6 +16,13 @@ inputs:
   head_repository:
     description: Pull-request head owner/name, or empty for non-PR events.
     required: true
+  allow_public_same_repo_caller:
+    description: >-
+      true admits a public caller for push, merge_group, and same-repository
+      pull_request events only. Must be true or false; has no effect for
+      private callers.
+    required: false
+    default: "false"
   timeout_minutes:
     description: Native lane timeout, constrained to 5-180 minutes.
     required: true
@@ -63,6 +70,7 @@ runs:
         EVENT_NAME: ${{ inputs.event_name }}
         REPOSITORY: ${{ inputs.repository }}
         HEAD_REPOSITORY: ${{ inputs.head_repository }}
+        ALLOW_PUBLIC_SAME_REPO_CALLER: ${{ inputs.allow_public_same_repo_caller }}
         TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
         MAX_PARALLEL: ${{ inputs.max_parallel }}
         RUNNER_GROUP: ${{ inputs.runner_group }}

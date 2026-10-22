@@ -57,6 +57,11 @@ ADMITTED_EVENTS = {
     "schedule",
     "workflow_dispatch",
 }
+# Issue #189: events a public caller may use when it sets
+# allow_public_same_repo_caller. A pull_request is further bound to a head
+# repository equal to the caller repository below; schedule and
+# workflow_dispatch stay private-only.
+PUBLIC_SAME_REPO_EVENTS = {"merge_group", "pull_request", "push"}
 TARGET_INPUTS = (
     ("rustfmt_targets", "RUSTFMT_TARGETS_JSON"),
     ("clippy_targets", "CLIPPY_TARGETS_JSON"),
@@ -126,13 +131,27 @@ def bounded_integer(name: str, raw: str, minimum: int, maximum: int) -> int:
 
 
 def validate_caller_admission(env: dict[str, str]) -> None:
-    if not strict_bool("repository_private", env.get("REPOSITORY_PRIVATE", "")):
+    repository_private = strict_bool(
+        "repository_private", env.get("REPOSITORY_PRIVATE", "")
+    )
+    allow_public_same_repo_caller = strict_bool(
+        "allow_public_same_repo_caller",
+        env.get("ALLOW_PUBLIC_SAME_REPO_CALLER", "false"),
+    )
+    if not repository_private and not allow_public_same_repo_caller:
         raise ContractError(
-            "private native runners require a private caller repository"
+            "private native runners require a private caller repository "
+            "(a public caller must opt in with allow_public_same_repo_caller)"
         )
     event_name = env.get("EVENT_NAME", "")
     if event_name not in ADMITTED_EVENTS:
         raise ContractError(f"caller event is not admitted: {event_name!r}")
+    if not repository_private and event_name not in PUBLIC_SAME_REPO_EVENTS:
+        raise ContractError(
+            f"public caller event is not admitted: {event_name!r}; "
+            "allow_public_same_repo_caller admits only push, merge_group, "
+            "and same-repository pull_request"
+        )
     repository = env.get("REPOSITORY", "")
     if not REPOSITORY_RE.fullmatch(repository):
         raise ContractError("repository must be an exact owner/name")
@@ -585,6 +604,14 @@ def self_test() -> int:
     assert json.loads(preflight_outputs["platform_matrix_json"]) == [valid_lane]
     for name, override in (
         ("public repository", {"REPOSITORY_PRIVATE": "false"}),
+        (
+            "public repository with explicit false opt-in",
+            {"REPOSITORY_PRIVATE": "false", "ALLOW_PUBLIC_SAME_REPO_CALLER": "false"},
+        ),
+        (
+            "non-boolean public opt-in",
+            {"REPOSITORY_PRIVATE": "false", "ALLOW_PUBLIC_SAME_REPO_CALLER": "yes"},
+        ),
         ("pull request target", {"EVENT_NAME": "pull_request_target"}),
         ("fork pull request", {"HEAD_REPOSITORY": "untrusted/fork"}),
         ("unknown event", {"EVENT_NAME": "issue_comment"}),
@@ -595,6 +622,70 @@ def self_test() -> int:
             name,
             lambda override=override: validate_matrix_contract(
                 {**preflight_env, **override}
+            ),
+        )
+
+    # Issue #189: public same-repository callers, admitted only by the explicit
+    # allow_public_same_repo_caller opt-in and only for same-repo events.
+    public_env = {
+        **preflight_env,
+        "REPOSITORY_PRIVATE": "false",
+        "ALLOW_PUBLIC_SAME_REPO_CALLER": "true",
+    }
+    for name, override in (
+        ("public push", {"EVENT_NAME": "push", "HEAD_REPOSITORY": ""}),
+        ("public merge_group", {"EVENT_NAME": "merge_group", "HEAD_REPOSITORY": ""}),
+        ("public same-repository pull request", {}),
+    ):
+        outputs = validate_matrix_contract({**public_env, **override})
+        assert json.loads(outputs["platform_matrix_json"]) == [valid_lane], name
+    for name, override in (
+        ("public fork pull request", {"HEAD_REPOSITORY": "untrusted/fork"}),
+        ("public pull request without head repository", {"HEAD_REPOSITORY": ""}),
+        ("public pull request target", {"EVENT_NAME": "pull_request_target"}),
+        ("public schedule", {"EVENT_NAME": "schedule", "HEAD_REPOSITORY": ""}),
+        (
+            "public workflow_dispatch",
+            {"EVENT_NAME": "workflow_dispatch", "HEAD_REPOSITORY": ""},
+        ),
+        ("public unknown event", {"EVENT_NAME": "issue_comment"}),
+    ):
+        expect_contract_error(
+            name,
+            lambda override=override: validate_matrix_contract(
+                {**public_env, **override}
+            ),
+        )
+    for name, labels in (
+        ("public hosted lane", ["ubuntu-latest"]),
+        ("public bare self-hosted lane", ["self-hosted"]),
+        ("public repo-shaped lane", ["tinyland-prompt-pulse-nix", "macOS", "ARM64"]),
+    ):
+        expect_contract_error(
+            name,
+            lambda labels=labels: validate_matrix_contract(
+                {
+                    **public_env,
+                    "PLATFORM_MATRIX_JSON": json.dumps(
+                        [{**valid_lane, "runner_labels": labels}]
+                    ),
+                }
+            ),
+        )
+    # Private callers are unchanged by the opt-in: every private event stays
+    # admitted with or without it, and fork pull requests stay refused.
+    for allow in ("true", "false"):
+        private_env = {**preflight_env, "ALLOW_PUBLIC_SAME_REPO_CALLER": allow}
+        for event_name in sorted(ADMITTED_EVENTS):
+            head = "tinyland-inc/prompt-pulse" if event_name == "pull_request" else ""
+            outputs = validate_matrix_contract(
+                {**private_env, "EVENT_NAME": event_name, "HEAD_REPOSITORY": head}
+            )
+            assert json.loads(outputs["platform_matrix_json"]) == [valid_lane]
+        expect_contract_error(
+            f"private fork pull request with opt-in {allow}",
+            lambda private_env=private_env: validate_matrix_contract(
+                {**private_env, "HEAD_REPOSITORY": "untrusted/fork"}
             ),
         )
     for name, matrix in (
