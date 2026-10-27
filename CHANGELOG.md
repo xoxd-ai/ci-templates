@@ -7,17 +7,21 @@ Versioning: [SemVer 2.0](https://semver.org/).
 
 ### Changed
 
-- **TIN-5770 bounded Bazel client servers in `spoke-ci.yml` and
-  `js-bazel-package.yml` (R470, R471, R472).** On persistent self-hosted
-  runners a Bazel server started by a workflow step outlived the job (default
-  idle limit 3 h). `spoke-ci.yml` `bazel-graph` now runs `mod graph` with
-  `--batch` and its builds with `--max_idle_secs=120`. The
+- **TIN-5770 bounded Bazel client servers in `spoke-ci.yml`,
+  `spoke-ci-restricted.yml`, `js-bazel-package.yml` and the `flywheel-bazel`
+  action (R470, R471, R472).** On persistent self-hosted runners a Bazel
+  server started by a workflow step outlived the job (default idle limit 3 h).
+  `spoke-ci.yml` and `spoke-ci-restricted.yml` `bazel-graph` now run
+  `mod graph` with `--batch` and their builds with `--max_idle_secs=120`. The
   `js-bazel-package.yml` target validation passes `--max_idle_secs=120`. The
-  cache-backed builds in both workflows also pass
-  `--remote_local_fallback=false`. Targets, configs, cache attachment and
-  runner routing are unchanged. `cache_backed` stays default `false`. The
-  `cache-backed-optin-contract-check` pin on the default command follows the
-  new flag.
+  cache-backed builds in all three workflows also pass
+  `--remote_local_fallback=false`. The `flywheel-bazel` action passes
+  `--max_idle_secs=120` as a startup option. The workflows reach it at the
+  release that re-pins their internal `@v5.1.1` refs. Targets, configs, cache
+  attachment and runner routing are unchanged. `cache_backed` stays default
+  `false`. The `cache-backed-optin-contract-check` pin on the default command
+  follows the new flag. The `restricted-workflow-contract.rb` legacy
+  `spoke-ci.yml` digest is re-recorded.
 
 ## [5.2.0] — 2026-10-22
 

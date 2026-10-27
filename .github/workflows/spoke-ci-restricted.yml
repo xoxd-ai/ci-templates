@@ -42,7 +42,7 @@ on:
           --remote_upload_local_results=false` reading the shared Bazel cache.
           CACHE-FIRST only: no remote executor is wired. When false/unset the
           existing default path runs unchanged except that its Bazel client
-          servers are bounded (TIN-5770 R472: `--batch` for `mod graph`,
+          servers are bounded (TIN-5770 R470/R472: `--batch` for `mod graph`,
           `--max_idle_secs=120` for builds). An opted spoke must also set
           flywheel_config: flywheel (not local) so flywheel-bazel forwards the
           remote cache.
