@@ -179,8 +179,13 @@ runs:
           exit 127
         fi
 
-        echo "::group::${runner[*]} ${{ inputs.command }} $config_flag <runtime-remote-args> ${{ inputs.extra_flags }} ${{ inputs.targets }}"
-        "${runner[@]}" ${{ inputs.command }} $config_flag "${remote_args[@]}" ${{ inputs.extra_flags }} ${{ inputs.targets }}
+        # TIN-5770 R470: the Bazel server exits after 120 s idle instead of
+        # the 3 h default, so it does not outlive the job on a persistent
+        # runner. The cache-backed steps in spoke-ci pass the same startup
+        # option, so the server is reused, not restarted.
+        startup_flags=(--max_idle_secs=120)
+        echo "::group::${runner[*]} ${startup_flags[*]} ${{ inputs.command }} $config_flag <runtime-remote-args> ${{ inputs.extra_flags }} ${{ inputs.targets }}"
+        "${runner[@]}" "${startup_flags[@]}" ${{ inputs.command }} $config_flag "${remote_args[@]}" ${{ inputs.extra_flags }} ${{ inputs.targets }}
         echo "::endgroup::"
 
         echo "executor_used=$executor_used" >> "$GITHUB_OUTPUT"

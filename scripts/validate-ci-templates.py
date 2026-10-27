@@ -661,9 +661,10 @@ def check_cache_backed_optin_contract() -> int:
         "--config=ci-cached",
         "--remote_cache=${BAZEL_REMOTE_CACHE}",
         "--remote_upload_local_results=false",
-        # the unchanged default command must still be present verbatim
+        # the default command must still be present verbatim, with its
+        # bounded server (TIN-5770 R470/R472)
         'run_with_bazel_fetch_retry "Validate Bazel targets" '
-        '"npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"',
+        '"npx --yes @bazel/bazelisk --max_idle_secs=120 build ${targets_quoted}--verbose_failures"',
         # TIN-2109: manifest validation in the cache-backed lane (fail-closed)
         "Validate repo manifest (cache-backed lane)",
         "repo-manifest-validate@v5.1.1",

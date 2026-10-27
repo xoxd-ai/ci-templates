@@ -24,8 +24,9 @@ on:
           `--config=ci-cached --remote_cache=$BAZEL_REMOTE_CACHE
           --remote_upload_local_results=false` reading the shared Bazel cache.
           CACHE-FIRST only: no remote executor is wired. When false/unset the
-          existing default path runs byte-identically (zero behavior change for
-          non-opted spoke consumers). An opted spoke must also set
+          existing default path runs unchanged except that its Bazel client
+          servers are bounded (TIN-5770 R470/R472: `--batch` for `mod graph`,
+          `--max_idle_secs=120` for builds). An opted spoke must also set
           flywheel_config: flywheel (not local) so flywheel-bazel forwards the
           remote cache.
         type: boolean
@@ -352,10 +353,13 @@ jobs:
           fi
           # CACHE-FIRST: ci-cached config + injected remote cache, read-only
           # (no upload); no remote executor is wired.
-          nix develop --command bazelisk build ${BAZEL_TARGETS} \
+          # TIN-5770 R470/R471: the server exits after 120 s idle and a remote
+          # failure never falls back to local execution.
+          nix develop --command bazelisk --max_idle_secs=120 build ${BAZEL_TARGETS} \
             --config=ci-cached \
             --remote_cache="${BAZEL_REMOTE_CACHE}" \
             --remote_upload_local_results=false \
+            --remote_local_fallback=false \
             --verbose_failures
 
       - name: Static site build
@@ -411,11 +415,14 @@ jobs:
       - if: ${{ inputs.cache_backed }}
         uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
 
-      - run: nix develop --command bazelisk mod graph
+      # TIN-5770 R472: a one-shot tooling call runs in batch mode and leaves
+      # no server behind.
+      - run: nix develop --command bazelisk --batch mod graph
 
-      # Default path: plain local build (untouched, byte-identical).
+      # Default path: plain local build. TIN-5770 R470: the server exits after
+      # 120 s idle instead of outliving the job on a persistent runner.
       - if: ${{ !inputs.cache_backed }}
-        run: nix develop --command bazelisk build //:node_modules
+        run: nix develop --command bazelisk --max_idle_secs=120 build //:node_modules
 
       # Cache-backed path: same target read through the validated shared cache.
       # tinyland-nix-heavy is a cluster capability class accepted by the contract.
@@ -460,10 +467,11 @@ jobs:
             echo "::error::cache_backed=true but BAZEL_REMOTE_CACHE is unset; failing closed rather than building local-only."
             exit 1
           fi
-          nix develop --command bazelisk build //:node_modules \
+          nix develop --command bazelisk --max_idle_secs=120 build //:node_modules \
             --config=ci-cached \
             --remote_cache="${BAZEL_REMOTE_CACHE}" \
             --remote_upload_local_results=false \
+            --remote_local_fallback=false \
             --verbose_failures
 
   playwright:
