@@ -729,8 +729,8 @@ endpoints, and localhost without explicit proof).
 
 `js-bazel-package.yml` exposes an **opt-in, default-off** `cache_backed` input.
 When unset, the Bazel validation runs the existing
-`bazelisk build … --verbose_failures` path byte-identically — zero impact on
-non-opted consumers. When `cache_backed: true`, the workflow runs the fail-closed
+`bazelisk build … --verbose_failures` path. Its Bazel server exits after 120 s
+idle (TIN-5770); nothing else changes for non-opted consumers. When `cache_backed: true`, the workflow runs the fail-closed
 cache-attachment contract and then validates with
 `--config=ci-cached --remote_cache=$BAZEL_REMOTE_CACHE
 --remote_upload_local_results=false`, reading the shared Bazel cache. This lane is
@@ -759,7 +759,8 @@ SvelteKit flywheel-eligible CAS surface). When set, the `flywheel-build` and
 export `GF_FLYWHEEL_PROFILE_STATE` from the manifest-driven substrate mode, run
 the identical fail-closed contract, and execute a cache-backed Bazel build of
 the flywheel-eligible targets reading the shared cache. The default path is
-byte-identical for the ~34 non-opted spoke consumers. An opted spoke must also
+unchanged for the ~34 non-opted spoke consumers apart from bounded Bazel
+servers (TIN-5770: `--batch` for `mod graph`, `--max_idle_secs=120` for builds). An opted spoke must also
 set `flywheel_config: flywheel` so `flywheel-bazel` forwards the remote cache.
 
 ## Native Rust+Bazel applications

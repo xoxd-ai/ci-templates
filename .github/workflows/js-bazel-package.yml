@@ -114,7 +114,8 @@ on:
           --remote_upload_local_results=false`, reading the shared Bazel cache.
           CACHE-FIRST only: no remote executor is wired. When false/unset the
           existing plain `bazelisk build ... --verbose_failures` path runs
-          byte-identically (zero behavior change for non-opted consumers).
+          unchanged except that its Bazel client server exits after 120 s idle
+          (TIN-5770 R470/R472, `--max_idle_secs=120`).
         type: boolean
         default: false
       substrate_mode:
@@ -740,11 +741,13 @@ jobs:
           # shellcheck source=/dev/null
           source "$BAZEL_FETCH_RETRY_HELPER"
           targets_quoted="$(printf '%q ' "${bazel_targets[@]}")"
-          run_with_bazel_fetch_retry "Validate Bazel targets" "npx --yes @bazel/bazelisk build ${targets_quoted}--verbose_failures"
+          # TIN-5770 R470/R472: the server exits after 120 s idle instead of
+          # outliving the job on a persistent runner.
+          run_with_bazel_fetch_retry "Validate Bazel targets" "npx --yes @bazel/bazelisk --max_idle_secs=120 build ${targets_quoted}--verbose_failures"
 
       # Opt-in (cache_backed=true) manifest validation. This is a NEW conditional
-      # path; the default path above is untouched (byte-identical for non-opted
-      # consumers). Validates the consumer's tinyland.repo.json against the
+      # path; the default path above is unchanged apart from its bounded server
+      # (TIN-5770). Validates the consumer's tinyland.repo.json against the
       # vendored ci-templates schema and FAILS CLOSED on an invalid manifest
       # (TIN-2109). Network-free: the schema ships in the action.
       - name: Validate repo manifest (cache-backed lane)
@@ -829,8 +832,9 @@ jobs:
           # CACHE-FIRST: ci-cached config + injected remote cache, read-only
           # (no upload), and no remote executor is wired. The remote cache
           # hit/transfer lines in this step's log are the real-attach proof.
+          # TIN-5770 R470/R471: bounded server, no local fallback.
           run_with_bazel_fetch_retry "Validate Bazel targets (cache-backed)" \
-            "npx --yes @bazel/bazelisk build ${targets_quoted}--config=ci-cached --remote_cache=${BAZEL_REMOTE_CACHE} --remote_upload_local_results=false --verbose_failures"
+            "npx --yes @bazel/bazelisk --max_idle_secs=120 build ${targets_quoted}--config=ci-cached --remote_cache=${BAZEL_REMOTE_CACHE} --remote_upload_local_results=false --remote_local_fallback=false --verbose_failures"
 
       - name: Validate npm tarball from Bazel artifact
         shell: bash

@@ -114,7 +114,13 @@ SPECS = {
     # `always()` and fails unless every upstream job succeeded. That job
     # is the reviewed legacy-only delta named in `legacy_only_jobs` below,
     # and `just required-gate-contract-check` proves its shape and verdict.
-    legacy_sha256: "cd9a1e67d0e49e8ceb2b2be2759f56dae366eb3cb4f2e9b4bf46c451885dc496",
+    # Re-recorded for TIN-5770 (R470, R471, R472: bounded Bazel servers).
+    # Previously cd9a1e67… (TIN-2611). `bazel-graph` runs `mod graph` with
+    # `--batch` and its builds with `--max_idle_secs=120`. The cache-backed
+    # builds also pass `--remote_local_fallback=false`. Targets, configs and
+    # routing do not move. The restricted variant carries the same edits, so
+    # the structural compare is unaffected.
+    legacy_sha256: "b34db5a1bdf4d38d3cdff13410fcf5abce181b3a4c570ca2d9927b489c2dfba8",
     # Jobs present only in the legacy workflow, stripped from the legacy copy
     # before the structural compare. The restricted variant forbids status
     # functions such as `always()` downstream of its trust gate, so the

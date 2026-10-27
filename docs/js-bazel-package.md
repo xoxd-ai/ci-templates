@@ -137,8 +137,9 @@ TIN-2110 cache-first enrollment surface (TIN-1997 Option D, proven by GF#889).
 
 - `false` / unset (default)
   - the Bazel target validation runs the existing plain
-    `npx --yes @bazel/bazelisk build <targets> --verbose_failures` path,
-    byte-identically. Non-opted consumers see zero behavior change.
+    `npx --yes @bazel/bazelisk --max_idle_secs=120 build <targets> --verbose_failures`
+    path. The only change for non-opted consumers is the bounded server
+    (TIN-5770): it exits after 120 s idle.
 - `true`
   - the consumer's `tinyland.repo.json` is validated against the vendored
     ci-templates schema (network-free); an invalid manifest **fails closed**
