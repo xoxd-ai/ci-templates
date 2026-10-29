@@ -444,7 +444,7 @@ jobs:
 
       - name: Configure self-hosted cache contract
         if: ${{ runner.environment != 'github-hosted' }}
-        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.2.0
 
       - name: Resolve working directory
         shell: bash
@@ -752,7 +752,7 @@ jobs:
       # (TIN-2109). Network-free: the schema ships in the action.
       - name: Validate repo manifest (cache-backed lane)
         if: ${{ inputs.cache_backed }}
-        uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/repo-manifest-validate@v5.2.0
         with:
           path: ${{ env.WORKSPACE_DIR }}/tinyland.repo.json
 
@@ -909,7 +909,7 @@ jobs:
 
       - name: Upload Bazel package artifact
         if: ${{ matrix.node-version == (inputs.publish_node_version || '22') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: bazel-pkg
           path: ${{ env.WORKSPACE_DIR }}/bazel-pkg.tgz
@@ -966,7 +966,7 @@ jobs:
 
       - name: Configure self-hosted cache contract
         if: ${{ steps.npm-policy.outputs.should_publish == 'true' && runner.environment != 'github-hosted' }}
-        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.2.0
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         if: ${{ steps.npm-policy.outputs.should_publish == 'true' }}
@@ -976,7 +976,7 @@ jobs:
 
       - name: Download Bazel package artifact
         if: ${{ steps.npm-policy.outputs.should_publish == 'true' }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: bazel-pkg
 
@@ -1073,7 +1073,7 @@ jobs:
 
       - name: Configure self-hosted cache contract
         if: ${{ runner.environment != 'github-hosted' }}
-        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.1.1
+        uses: xoxd-ai/ci-templates/.github/actions/nix-setup@v5.2.0
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
@@ -1081,7 +1081,7 @@ jobs:
           registry-url: ${{ inputs.github_package_registry || 'https://npm.pkg.github.com' }}
 
       - name: Download Bazel package artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: bazel-pkg
 
